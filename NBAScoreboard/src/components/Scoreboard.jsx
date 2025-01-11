@@ -132,20 +132,21 @@ const GameCard = ({ game, isLive }) => {
     <Card 
       sx={{
         mb: 2,
-        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'white',
-        boxShadow: isLive ? '0 0 15px rgba(0, 255, 0, 0.1)' : 'none',
+        backgroundColor: 'rgb(45, 45, 45)',
+        boxShadow: 'none',
         transition: 'transform 0.2s',
         '&:hover': {
           transform: 'scale(1.01)',
-        }
+        },
+        height: '80px' // Fixed height for consistency
       }}
     >
-      <CardContent>
+      <CardContent sx={{ position: 'relative', p: '16px !important', height: '100%' }}>
         <Stack 
           direction="row" 
           justifyContent="space-between" 
-          alignItems="stretch"
-          sx={{ minHeight: '80px' }}
+          alignItems="center"
+          sx={{ height: '100%' }}
         >
           <TeamInfo 
             teamName={game.away_team} 
@@ -155,20 +156,22 @@ const GameCard = ({ game, isLive }) => {
           
           <Box 
             sx={{ 
-              mx: 2,
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
               minWidth: '100px',
-              height: '100%',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center'
+              textAlign: 'center'
             }}
           >
             <Typography 
               variant="body2" 
               sx={{
-                color: 'text.secondary',
-                opacity: 0.8,
-                letterSpacing: '0.5px'
+                color: '#ffffff',
+                opacity: 0.5,
+                letterSpacing: '0.5px',
+                fontWeight: 400,
+                fontSize: '0.875rem'
               }}
             >
               {game.time === '4Q 0:00' ? 'Final' : game.time}
