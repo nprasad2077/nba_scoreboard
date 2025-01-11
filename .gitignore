@@ -243,3 +243,44 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+
+# Node.js / React dependencies
+NBAScoreboard/node_modules/
+NBAScoreboard/.env
+NBAScoreboard/.env.local
+NBAScoreboard/.env.development
+NBAScoreboard/.env.production
+NBAScoreboard/.env.test
+NBAScoreboard/.npmrc
+NBAScoreboard/.yarnrc
+
+# Logs
+NBAScoreboard/npm-debug.log*
+NBAScoreboard/yarn-debug.log*
+NBAScoreboard/yarn-error.log*
+
+# Production build
+NBAScoreboard/build/
+NBAScoreboard/dist/
+
+# Testing
+NBAScoreboard/coverage/
+NBAScoreboard/.nyc_output/
+
+# Misc
+NBAScoreboard/.DS_Store
+NBAScoreboard/*.pem
+NBAScoreboard/*.crt
+NBAScoreboard/*.key
+
+# Vite-specific ignores
+NBAScoreboard/.vite/
+NBAScoreboard/.cache/
+NBAScoreboard/vite.lock
+
+# Editor-specific ignores
+.idea/
+.vscode/
+NBAScoreboard/.idea/
+NBAScoreboard/.vscode/
