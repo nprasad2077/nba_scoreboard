@@ -92,12 +92,18 @@ const fetchScores = async () => {
   return data;
 };
 
-const TeamInfo = ({ teamName, score, isWinner }) => {
+const TeamInfo = ({ teamName, score, isWinner, isHomeTeam }) => {
   const abbreviation = teamAbbreviations[teamName];
   const logoSrc = teamLogos[abbreviation];
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+    <Box sx={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 2,
+      flexDirection: isHomeTeam ? 'row-reverse' : 'row',
+      justifyContent: isHomeTeam ? 'flex-start' : 'flex-start'
+    }}>
       <Box
         component="img"
         src={logoSrc}
@@ -108,13 +114,14 @@ const TeamInfo = ({ teamName, score, isWinner }) => {
           objectFit: 'contain'
         }}
       />
-      <Box>
+      <Box sx={{ textAlign: isHomeTeam ? 'right' : 'left' }}>
         <Typography variant="body1" fontWeight="bold">
           {teamName}
         </Typography>
         <Typography 
           variant="h5" 
           color={isWinner ? 'primary' : 'text.primary'}
+          sx={{ color: isWinner ? '#64b5f6' : '#ffffff' }}
         >
           {score}
         </Typography>
@@ -152,6 +159,7 @@ const GameCard = ({ game, isLive }) => {
             teamName={game.away_team} 
             score={awayScore}
             isWinner={awayScore > homeScore}
+            isHomeTeam={false}
           />
           
           <Box 
@@ -182,6 +190,7 @@ const GameCard = ({ game, isLive }) => {
             teamName={game.home_team} 
             score={homeScore}
             isWinner={homeScore > awayScore}
+            isHomeTeam={true}
           />
         </Stack>
       </CardContent>
