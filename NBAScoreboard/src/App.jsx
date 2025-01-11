@@ -1,35 +1,35 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Button, Stack } from "@mui/material";
+import { styled } from "@mui/material/styles";
+
+// Custom styled button
+const CustomButton = styled(Button)(({ theme }) => ({
+  background: "linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)",
+  border: 0,
+  color: "white",
+  height: 48,
+  padding: "0 30px",
+  boxShadow: "0 3px 5px 2px rgba(255, 105, 135, .3)",
+  "&:hover": {
+    background: "linear-gradient(45deg, #FE8B8B 30%, #FF9E53 90%)",
+  },
+}));
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Stack
+      spacing={2}
+      direction="row"
+      alignItems="center"
+      justifyContent="center"
+      sx={{ minHeight: "100vh" }}
+    >
+      {/* Default MUI Button */}
+      <Button variant="contained">Default Button</Button>
+
+      {/* Custom Styled Button */}
+      <CustomButton variant="contained">Custom Button</CustomButton>
+    </Stack>
+  );
 }
 
-export default App
+export default App;

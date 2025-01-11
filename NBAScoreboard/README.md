@@ -1,8 +1,26 @@
-# React + Vite
+# React Scoreboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Importing and using SVG files
 
-Currently, two official plugins are available:
+Import SVGs as react components
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```javascript
+import { ReactComponent as HawksLogo } from "./assets/nba-logos/eastern/atlanta-hawks.svg";
+
+function App() {
+  return <HawksLogo width="100" height="100" />;
+}
+```
+
+If you want to customize vite-plugin-svgr behavior, you can pass options to the svgr() function:
+
+```javascript
+svgr({
+  svgo: true, // Enable SVGO optimization
+  svgoConfig: {
+    plugins: [{ removeViewBox: false }], // Example: Keep the `viewBox` attribute
+  },
+  titleProp: true, // Add a `title` attribute
+  ref: true, // Add a ref to the SVG
+});
+```

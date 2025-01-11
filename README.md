@@ -13,4 +13,3 @@ Start the api using `python main.py`
 Current Scoreboard: `http://localhost:8000/`
 API Docs: `http://localhost:8000/docs`
 API Health Check: `http://localhost:8000/health`
-
