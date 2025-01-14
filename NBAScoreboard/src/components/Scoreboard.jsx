@@ -114,7 +114,8 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         gap: { xs: 1, sm: 2 },
         flexDirection: isHomeTeam ? "row-reverse" : "row",
         justifyContent: isHomeTeam ? "flex-start" : "flex-start",
-        minWidth: { xs: "120px", sm: "200px" },
+        minWidth: { xs: "120px", sm: "250px" }, // Increased from 200px to 250px
+        maxWidth: { xs: "120px", sm: "300px" }, // Added maxWidth constraint
       }}
     >
       <Box
@@ -125,13 +126,20 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
           width: { xs: 30, sm: 40 },
           height: { xs: 30, sm: 40 },
           objectFit: "contain",
+          flexShrink: 0, // Prevent logo from shrinking
         }}
       />
-      <Box sx={{ textAlign: isHomeTeam ? "right" : "left" }}>
+      <Box
+        sx={{
+          textAlign: isHomeTeam ? "right" : "left",
+          width: "100%", // Allow text container to take available space
+          overflow: "hidden", // Ensure content doesn't overflow
+        }}
+      >
         <Box
           sx={{
             display: { xs: "none", sm: "block" },
-            maxWidth: "150px",
+            maxWidth: "200px", // Increased from 150px to 200px
           }}
         >
           <Typography
@@ -142,6 +150,7 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              width: "100%", // Ensure typography takes full width of container
             }}
           >
             {teamName}
