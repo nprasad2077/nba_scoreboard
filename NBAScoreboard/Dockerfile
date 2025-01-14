@@ -17,19 +17,19 @@ EXPOSE 5173
 # Start the application
 CMD ["npm", "run", "dev", "--", "--host"]
 
-# nba_scoreboard_api/Dockerfile
+# File: nba_scoreboard_api/Dockerfile
 FROM python:3.9-slim
 
 WORKDIR /app
 
-# Copy requirements file
-COPY requirements.txt .
+# Copy requirements file first for better caching
+COPY nba_scoreboard_api/requirements.txt requirements.txt
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
-COPY . .
+COPY nba_scoreboard_api/ .
 
 # Expose the port the app runs on
 EXPOSE 8000
