@@ -9,6 +9,8 @@ from dateutil import parser
 import pytz
 import uvicorn
 from pydantic import BaseModel
+import argparse
+import os
 
 app = FastAPI(
     title="NBA Live Scores API",
@@ -171,5 +173,12 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='NBA Live Scores API')
+    parser.add_argument('--port', type=int, default=int(os.environ.get('PORT', 8080)))
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    args = parse_args()
+    uvicorn.run(app, host="0.0.0.0", port=args.port)

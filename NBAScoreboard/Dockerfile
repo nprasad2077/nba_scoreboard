@@ -15,8 +15,8 @@ RUN npm install --legacy-peer-deps --production=false
 # Copy the rest of the application code
 COPY . .
 
-# Set build-time variables for Vite
-ENV VITE_API_URL=http://backend:8000
+# Set environment variables
+ENV PORT=3000
 
-# Development mode for debugging
-CMD ["npm", "run", "dev", "--", "--host", "--port", "5173"]
+# Start the development server
+CMD ["npm", "run", "dev", "--", "--host", "--port", "3000"]

@@ -7,9 +7,9 @@ services:
       context: ./NBAScoreboard
       dockerfile: Dockerfile
     ports:
-      - "5173:5173"
+      - "3000"
     environment:
-      - VITE_API_URL=${API_URL:-http://backend:8000}
+      - VITE_API_URL=${API_URL:-http://backend:8080}
       - NODE_ENV=production
     depends_on:
       - backend
@@ -19,10 +19,10 @@ services:
       context: ./nba_scoreboard_api
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8080"
     environment:
       - HOST=0.0.0.0
-      - PORT=8000
+      - PORT=8080
 
 networks:
   default:
