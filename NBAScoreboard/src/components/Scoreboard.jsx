@@ -52,39 +52,7 @@ const teamLogos = {
   OKC, ORL, PHI, PHX, POR, SAC, SAS, TOR, UTA, WAS
 };
 
-// Team abbreviation mapping
-const teamAbbreviations = {
-  'Atlanta Hawks': 'ATL',
-  'Boston Celtics': 'BOS',
-  'Brooklyn Nets': 'BKN',
-  'Charlotte Hornets': 'CHA',
-  'Chicago Bulls': 'CHI',
-  'Cleveland Cavaliers': 'CLE',
-  'Dallas Mavericks': 'DAL',
-  'Denver Nuggets': 'DEN',
-  'Detroit Pistons': 'DET',
-  'Golden State Warriors': 'GSW',
-  'Houston Rockets': 'HOU',
-  'Indiana Pacers': 'IND',
-  'Los Angeles Clippers': 'LAC',
-  'Los Angeles Lakers': 'LAL',
-  'Memphis Grizzlies': 'MEM',
-  'Miami Heat': 'MIA',
-  'Milwaukee Bucks': 'MIL',
-  'Minnesota Timberwolves': 'MIN',
-  'New Orleans Pelicans': 'NOP',
-  'New York Knicks': 'NYK',
-  'Oklahoma City Thunder': 'OKC',
-  'Orlando Magic': 'ORL',
-  'Philadelphia 76ers': 'PHI',
-  'Phoenix Suns': 'PHX',
-  'Portland Trail Blazers': 'POR',
-  'Sacramento Kings': 'SAC',
-  'San Antonio Spurs': 'SAS',
-  'Toronto Raptors': 'TOR',
-  'Utah Jazz': 'UTA',
-  'Washington Wizards': 'WAS'
-};
+
 
 const fetchScores = async () => {
   const response = await fetch('http://localhost:8000/');
@@ -92,9 +60,8 @@ const fetchScores = async () => {
   return data;
 };
 
-const TeamInfo = ({ teamName, score, isWinner, isHomeTeam }) => {
-  const abbreviation = teamAbbreviations[teamName];
-  const logoSrc = teamLogos[abbreviation];
+const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
+  const logoSrc = teamLogos[tricode];
 
   return (
     <Box sx={{ 
@@ -102,7 +69,8 @@ const TeamInfo = ({ teamName, score, isWinner, isHomeTeam }) => {
       alignItems: 'center', 
       gap: 2,
       flexDirection: isHomeTeam ? 'row-reverse' : 'row',
-      justifyContent: isHomeTeam ? 'flex-start' : 'flex-start'
+      justifyContent: isHomeTeam ? 'flex-start' : 'flex-start',
+      minWidth: '200px'
     }}>
       <Box
         component="img"
@@ -118,13 +86,15 @@ const TeamInfo = ({ teamName, score, isWinner, isHomeTeam }) => {
         <Typography variant="body1" fontWeight="bold">
           {teamName}
         </Typography>
-        <Typography 
-          variant="h5" 
-          color={isWinner ? 'primary' : 'text.primary'}
-          sx={{ color: isWinner ? '#64b5f6' : '#ffffff' }}
-        >
-          {score}
-        </Typography>
+        {score !== '' && (
+          <Typography 
+            variant="h5" 
+            color={isWinner ? 'primary' : 'text.primary'}
+            sx={{ color: isWinner ? '#64b5f6' : '#ffffff' }}
+          >
+            {score}
+          </Typography>
+        )}
       </Box>
     </Box>
   );
@@ -133,7 +103,9 @@ const TeamInfo = ({ teamName, score, isWinner, isHomeTeam }) => {
 // Rest of the component remains the same
 const GameCard = ({ game, isLive }) => {
   const theme = useTheme();
-  const [awayScore, homeScore] = game.score.split(' - ').map(score => parseInt(score));
+  const [awayScore, homeScore] = game.score.split(' - ').map(score => parseInt(score) || 0);
+  const gameStatus = game.time;
+  const isScheduled = gameStatus.startsWith('Start:');
   
   return (
     <Card 
@@ -145,7 +117,7 @@ const GameCard = ({ game, isLive }) => {
         '&:hover': {
           transform: 'scale(1.01)',
         },
-        height: '80px' // Fixed height for consistency
+        height: '80px'
       }}
     >
       <CardContent sx={{ position: 'relative', p: '16px !important', height: '100%' }}>
@@ -156,9 +128,10 @@ const GameCard = ({ game, isLive }) => {
           sx={{ height: '100%' }}
         >
           <TeamInfo 
-            teamName={game.away_team} 
-            score={awayScore}
-            isWinner={awayScore > homeScore}
+            teamName={game.away_team}
+            tricode={game.away_tricode}
+            score={isScheduled ? '' : awayScore}
+            isWinner={!isScheduled && awayScore > homeScore}
             isHomeTeam={false}
           />
           
@@ -182,14 +155,15 @@ const GameCard = ({ game, isLive }) => {
                 fontSize: '0.875rem'
               }}
             >
-              {game.time === '4Q 0:00' ? 'Final' : game.time}
+              {isScheduled ? gameStatus.replace('Start: ', '') : gameStatus}
             </Typography>
           </Box>
           
           <TeamInfo 
-            teamName={game.home_team} 
-            score={homeScore}
-            isWinner={homeScore > awayScore}
+            teamName={game.home_team}
+            tricode={game.home_tricode}
+            score={isScheduled ? '' : homeScore}
+            isWinner={!isScheduled && homeScore > awayScore}
             isHomeTeam={true}
           />
         </Stack>
@@ -244,7 +218,7 @@ const RefreshProgress = ({ progress, lastUpdateTime }) => {
               color: 'primary.main'
             }}
           >
-            {Math.round(progress / 100 * 20)}s
+            {Math.round(progress / 100 * 15)}s
           </Typography>
         </Box>
       </Box>
@@ -279,14 +253,14 @@ const Scoreboard = () => {
         if (prev >= 100) {
           return 0;
         }
-        return prev + (100 / 20); // Increment for smooth 20-second countdown
+        return prev + (100 / 15); // Increment for smooth 15-second countdown
       });
     }, 1000);
 
     // Set up data refresh timer (slightly earlier than visual countdown)
     const refreshInterval = setInterval(() => {
       updateScores();
-    }, 19800); // 19.8 seconds
+    }, 14200); // 14.2 seconds, response takes about 800 ms
 
     return () => {
       clearInterval(progressInterval);
@@ -294,7 +268,8 @@ const Scoreboard = () => {
     };
   }, [updateScores]);
 
-  const liveGames = games.filter(game => game.time !== '4Q 0:00');
+  const liveGames = games.filter(game => !game.time.startsWith('Start:') && game.time !== '4Q 0:00' && game.time !== '0Q 10:44' && game.time !== '0Q 10:39');
+  const scheduledGames = games.filter(game => game.time.startsWith('Start:') || game.time === '0Q 10:44' || game.time === '0Q 10:39');
   const completedGames = games.filter(game => game.time === '4Q 0:00');
 
   return (
@@ -314,6 +289,18 @@ const Scoreboard = () => {
         </Typography>
         <RefreshProgress progress={progress} lastUpdateTime={lastUpdateTime} />
       </Box>
+
+      {/* Scheduled Games Section */}
+      {scheduledGames.length > 0 && (
+        <Box mb={4}>
+          <Typography variant="h6" gutterBottom>
+            Upcoming Games
+          </Typography>
+          {scheduledGames.map((game, index) => (
+            <GameCard key={index} game={game} isLive={false} />
+          ))}
+        </Box>
+      )}
 
       {/* Live Games Section */}
       {liveGames.length > 0 && (

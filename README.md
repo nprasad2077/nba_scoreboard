@@ -31,3 +31,9 @@ API Health Check: `http://localhost:8000/health`
 
 Enter the NBAScoreboard directory `cd ./NBAScoreboard` and run `npm install` then `npm run dev` to launch the react application.
 Default port is 5173.
+
+## Docker
+
+```powershell
+docker-compose up -d --build
+```
