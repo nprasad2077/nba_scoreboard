@@ -111,10 +111,10 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 2,
+        gap: { xs: 1, sm: 2 },
         flexDirection: isHomeTeam ? "row-reverse" : "row",
         justifyContent: isHomeTeam ? "flex-start" : "flex-start",
-        minWidth: "200px",
+        minWidth: { xs: "120px", sm: "200px" },
       }}
     >
       <Box
@@ -122,20 +122,33 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         src={logoSrc}
         alt={`${teamName} logo`}
         sx={{
-          width: 40,
-          height: 40,
+          width: { xs: 30, sm: 40 },
+          height: { xs: 30, sm: 40 },
           objectFit: "contain",
         }}
       />
       <Box sx={{ textAlign: isHomeTeam ? "right" : "left" }}>
-        <Typography variant="body1" fontWeight="bold">
+        <Typography 
+          variant="body1" 
+          fontWeight="bold"
+          sx={{
+            fontSize: { xs: '0.8rem', sm: '1rem' },
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: { xs: '80px', sm: '150px' }
+          }}
+        >
           {teamName}
         </Typography>
         {score !== "" && (
           <Typography
             variant="h5"
             color={isWinner ? "primary" : "text.primary"}
-            sx={{ color: isWinner ? "#64b5f6" : "#ffffff" }}
+            sx={{ 
+              color: isWinner ? "#64b5f6" : "#ffffff",
+              fontSize: { xs: '1.2rem', sm: '1.5rem' }
+            }}
           >
             {score}
           </Typography>
@@ -166,7 +179,7 @@ const GameCard = ({ game, isLive }) => {
         "&:hover": {
           transform: "scale(1.01)",
         },
-        height: "80px",
+        height: { xs: "100px", sm: "80px" },
       }}
     >
       <CardContent
@@ -192,7 +205,7 @@ const GameCard = ({ game, isLive }) => {
               left: "50%",
               top: "50%",
               transform: "translate(-50%, -50%)",
-              minWidth: "100px",
+              minWidth: { xs: "80px", sm: "100px" },
               textAlign: "center",
             }}
           >
@@ -203,7 +216,7 @@ const GameCard = ({ game, isLive }) => {
                 opacity: 0.5,
                 letterSpacing: "0.5px",
                 fontWeight: 400,
-                fontSize: "0.875rem",
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
               }}
             >
               {isScheduled ? gameStatus.replace("Start: ", "") : displayStatus}
@@ -234,13 +247,19 @@ const RefreshProgress = ({ progress, lastUpdateTime }) => {
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 2,
+        gap: { xs: 1, sm: 2 },
         backgroundColor: "rgba(0, 0, 0, 0.04)",
         borderRadius: 1,
-        padding: "4px 12px",
+        padding: { xs: "4px 8px", sm: "4px 12px" },
       }}
     >
-      <Typography variant="caption" sx={{ opacity: 0.7 }}>
+      <Typography 
+        variant="caption" 
+        sx={{ 
+          opacity: 0.7,
+          fontSize: { xs: '0.7rem', sm: '0.75rem' }
+        }}
+      >
         Last update: {formatLastUpdate(lastUpdateTime)}
       </Typography>
       <Box sx={{ position: "relative", display: "inline-flex" }}>
@@ -371,7 +390,7 @@ const Scoreboard = () => {
   const completedGames = games.filter((game) => game.time === "4Q 0:00");
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header with Progress */}
       <Box
         sx={{
@@ -381,7 +400,9 @@ const Scoreboard = () => {
           mb: 3,
           backgroundColor: "rgba(0, 0, 0, 0.2)",
           borderRadius: 1,
-          padding: "8px 16px",
+          padding: { xs: "8px 12px", sm: "8px 16px" },
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 1, sm: 0 },
         }}
       >
         <Typography variant="h6">NBA Scoreboard</Typography>
