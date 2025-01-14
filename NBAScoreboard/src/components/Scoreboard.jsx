@@ -53,9 +53,23 @@ const teamLogos = {
 };
 
 const fetchScores = async () => {
-  const response = await fetch('http://localhost:8000/');
-  const data = await response.json();
-  return data;
+  try {
+    // Try to get the browser's timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const url = timezone 
+      ? `http://localhost:8000/?timezone=${encodeURIComponent(timezone)}`
+      : 'http://localhost:8000/';
+      
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    // If there's any error with timezone detection or encoding, fallback to default URL
+    console.warn('Error with timezone detection, falling back to default:', error);
+    const response = await fetch('http://localhost:8000/');
+    const data = await response.json();
+    return data;
+  }
 };
 
 const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
@@ -260,7 +274,7 @@ const Scoreboard = () => {
     // Set up data refresh timer (slightly earlier than visual countdown)
     const refreshInterval = setInterval(() => {
       updateScores();
-    }, 14200); // 14.2 seconds assuming 800ms response time.
+    }, 14200); // 14.2 seconds for estimated 800ms response time.
 
     return () => {
       clearInterval(progressInterval);

@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict
+from typing import List, Dict, Optional
 import pandas as pd
 from nba_api.live.nba.endpoints import scoreboard, boxscore
 import re
 from datetime import datetime, timezone
 from dateutil import parser
+import pytz
 import uvicorn
 from pydantic import BaseModel
 
@@ -61,11 +62,39 @@ def parse_game_time(time_str: str) -> int:
     except:
         return 999999  # Handle any parsing errors by placing at the end
 
-def format_game_start_time(game_time_utc: str) -> str:
-    game_time = parser.parse(game_time_utc).replace(tzinfo=timezone.utc).astimezone(tz=None)
-    return game_time.strftime("%I:%M %p")
+def format_game_start_time(game_time_utc: str, tz_name: Optional[str] = None) -> str:
+    """
+    Format game start time according to specified timezone
+    
+    Args:
+        game_time_utc: UTC time string
+        tz_name: Timezone name (e.g., 'America/Chicago')
+    
+    Returns:
+        Formatted time string in the specified timezone
+    """
+    try:
+        # Parse the UTC time
+        game_time = parser.parse(game_time_utc).replace(tzinfo=timezone.utc)
+        
+        if tz_name:
+            try:
+                # Convert to specified timezone
+                local_tz = pytz.timezone(tz_name)
+                game_time = game_time.astimezone(local_tz)
+            except pytz.exceptions.UnknownTimeZoneError:
+                # Fall back to system timezone if specified timezone is invalid
+                game_time = game_time.astimezone()
+        else:
+            # Use system timezone if none specified
+            game_time = game_time.astimezone()
+            
+        return game_time.strftime("%I:%M %p")
+    
+    except Exception as e:
+        return "Time Unknown"
 
-def get_live_scores() -> List[Dict]:
+def get_live_scores(timezone: Optional[str] = None) -> List[Dict]:
     try:
         board = scoreboard.ScoreBoard()
         games = board.games.get_dict()
@@ -98,7 +127,7 @@ def get_live_scores() -> List[Dict]:
                 
             except Exception as game_error:
                 # If we can't get live data, use scheduled game info
-                start_time = format_game_start_time(game['gameTimeUTC'])
+                start_time = format_game_start_time(game['gameTimeUTC'], timezone)
                 
                 game_data.append({
                     "away_team": f"{game['awayTeam']['teamCity']} {game['awayTeam']['teamName']}",
@@ -117,14 +146,17 @@ def get_live_scores() -> List[Dict]:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", response_model=List[GameScore])
-async def read_scores():
+async def read_scores(timezone: Optional[str] = Query(None, description="Timezone (e.g., 'America/Chicago')")):
     """
     Get current NBA live scores
+    
+    Parameters:
+        timezone: Optional timezone name (e.g., 'America/Chicago', 'America/New_York')
     
     Returns:
         List[GameScore]: A list of all current NBA games with scores
     """
-    return get_live_scores()
+    return get_live_scores(timezone)
 
 @app.get("/health")
 async def health_check():
