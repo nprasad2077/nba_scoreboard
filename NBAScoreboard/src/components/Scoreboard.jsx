@@ -271,7 +271,7 @@ const RefreshProgress = ({ progress, lastUpdateTime }) => {
               color: "primary.main",
             }}
           >
-            {Math.round((progress / 100) * 15)}s
+            {Math.round((progress / 100) * 10)}s
           </Typography>
         </Box>
       </Box>
@@ -306,14 +306,14 @@ const Scoreboard = () => {
         if (prev >= 100) {
           return 0;
         }
-        return prev + 100 / 15; // Increment for smooth 15-second countdown
+        return prev + 100 / 10; // Increment for smooth 10-second countdown
       });
     }, 1000);
 
     // Set up data refresh timer (slightly earlier than visual countdown)
     const refreshInterval = setInterval(() => {
       updateScores();
-    }, 14200); // 14.2 seconds for estimated 800ms response time.
+    }, 9200); // 9.2 seconds for estimated 800ms response time.
 
     return () => {
       clearInterval(progressInterval);
