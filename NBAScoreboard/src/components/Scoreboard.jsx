@@ -52,8 +52,6 @@ const teamLogos = {
   OKC, ORL, PHI, PHX, POR, SAC, SAS, TOR, UTA, WAS
 };
 
-
-
 const fetchScores = async () => {
   const response = await fetch('http://localhost:8000/');
   const data = await response.json();
@@ -100,12 +98,14 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
   );
 };
 
-// Rest of the component remains the same
 const GameCard = ({ game, isLive }) => {
   const theme = useTheme();
   const [awayScore, homeScore] = game.score.split(' - ').map(score => parseInt(score) || 0);
   const gameStatus = game.time;
   const isScheduled = gameStatus.startsWith('Start:');
+  
+  // Format the game status display
+  const displayStatus = gameStatus === '0Q 0:00' ? 'Pre-Game 0:00' : gameStatus;
   
   return (
     <Card 
@@ -155,7 +155,7 @@ const GameCard = ({ game, isLive }) => {
                 fontSize: '0.875rem'
               }}
             >
-              {isScheduled ? gameStatus.replace('Start: ', '') : gameStatus}
+              {isScheduled ? gameStatus.replace('Start: ', '') : displayStatus}
             </Typography>
           </Box>
           
@@ -218,7 +218,7 @@ const RefreshProgress = ({ progress, lastUpdateTime }) => {
               color: 'primary.main'
             }}
           >
-            {Math.round(progress / 100 * 15)}s
+            {Math.round(progress / 100 * 20)}s
           </Typography>
         </Box>
       </Box>
@@ -253,14 +253,14 @@ const Scoreboard = () => {
         if (prev >= 100) {
           return 0;
         }
-        return prev + (100 / 15); // Increment for smooth 15-second countdown
+        return prev + (100 / 20); // Increment for smooth 20-second countdown
       });
     }, 1000);
 
     // Set up data refresh timer (slightly earlier than visual countdown)
     const refreshInterval = setInterval(() => {
       updateScores();
-    }, 14200); // 14.2 seconds, response takes about 800 ms
+    }, 19800); // 19.8 seconds
 
     return () => {
       clearInterval(progressInterval);
@@ -268,9 +268,49 @@ const Scoreboard = () => {
     };
   }, [updateScores]);
 
-  const liveGames = games.filter(game => !game.time.startsWith('Start:') && game.time !== '4Q 0:00' && game.time !== '0Q 10:44' && game.time !== '0Q 10:39');
-  const scheduledGames = games.filter(game => game.time.startsWith('Start:') || game.time === '0Q 10:44' || game.time === '0Q 10:39');
-  const completedGames = games.filter(game => game.time === '4Q 0:00');
+  // Helper function to parse period and time for sorting
+  const parseGameTime = (time) => {
+    if (time.startsWith('Start:')) return { period: -1, minutes: 0, seconds: 0 };
+    
+    const periodMatch = time.match(/(\d+)Q/);
+    const timeMatch = time.match(/(\d+):(\d+)/);
+    
+    const period = periodMatch ? parseInt(periodMatch[1]) : 0;
+    const minutes = timeMatch ? parseInt(timeMatch[1]) : 0;
+    const seconds = timeMatch ? parseInt(timeMatch[2]) : 0;
+    
+    return { period, minutes, seconds };
+  };
+
+  // Sort function for games
+  const sortGames = (a, b) => {
+    const timeA = parseGameTime(a.time);
+    const timeB = parseGameTime(b.time);
+
+    // First sort by period (descending)
+    if (timeB.period !== timeA.period) return timeB.period - timeA.period;
+    
+    // Then sort by time (ascending)
+    const totalSecondsA = timeA.minutes * 60 + timeA.seconds;
+    const totalSecondsB = timeB.minutes * 60 + timeB.seconds;
+    return totalSecondsA - totalSecondsB;
+  };
+
+  // Filter and sort games
+  const liveGames = games
+    .filter(game => !game.time.startsWith('Start:') && 
+                   game.time !== '4Q 0:00' && 
+                   game.time !== '0Q 10:44' && 
+                   game.time !== '0Q 10:39')
+    .sort(sortGames);
+
+  const scheduledGames = games
+    .filter(game => game.time.startsWith('Start:') || 
+                   game.time === '0Q 10:44' || 
+                   game.time === '0Q 10:39');
+
+  const completedGames = games
+    .filter(game => game.time === '4Q 0:00');
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -289,18 +329,6 @@ const Scoreboard = () => {
         </Typography>
         <RefreshProgress progress={progress} lastUpdateTime={lastUpdateTime} />
       </Box>
-
-      {/* Scheduled Games Section */}
-      {scheduledGames.length > 0 && (
-        <Box mb={4}>
-          <Typography variant="h6" gutterBottom>
-            Upcoming Games
-          </Typography>
-          {scheduledGames.map((game, index) => (
-            <GameCard key={index} game={game} isLive={false} />
-          ))}
-        </Box>
-      )}
 
       {/* Live Games Section */}
       {liveGames.length > 0 && (
@@ -325,6 +353,18 @@ const Scoreboard = () => {
           </Typography>
           {liveGames.map((game, index) => (
             <GameCard key={index} game={game} isLive={true} />
+          ))}
+        </Box>
+      )}
+
+      {/* Scheduled Games Section */}
+      {scheduledGames.length > 0 && (
+        <Box mb={4}>
+          <Typography variant="h6" gutterBottom>
+            Upcoming Games
+          </Typography>
+          {scheduledGames.map((game, index) => (
+            <GameCard key={index} game={game} isLive={false} />
           ))}
         </Box>
       )}

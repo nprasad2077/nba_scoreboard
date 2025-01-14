@@ -37,3 +37,7 @@ Default port is 5173.
 ```powershell
 docker-compose up -d --build
 ```
+
+```powershell
+docker-compose down --rmi all && docker-compose up -d
+```
