@@ -128,26 +128,47 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         }}
       />
       <Box sx={{ textAlign: isHomeTeam ? "right" : "left" }}>
-        <Typography 
-          variant="body1" 
-          fontWeight="bold"
+        <Box
           sx={{
-            fontSize: { xs: '0.8rem', sm: '1rem' },
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: { xs: '80px', sm: '150px' }
+            display: { xs: "none", sm: "block" },
+            maxWidth: "150px",
           }}
         >
-          {teamName}
-        </Typography>
+          <Typography
+            variant="body1"
+            fontWeight="bold"
+            sx={{
+              fontSize: "1rem",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {teamName}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            display: { xs: "block", sm: "none" },
+          }}
+        >
+          <Typography
+            variant="body1"
+            fontWeight="bold"
+            sx={{
+              fontSize: "0.9rem",
+            }}
+          >
+            {tricode}
+          </Typography>
+        </Box>
         {score !== "" && (
           <Typography
             variant="h5"
             color={isWinner ? "primary" : "text.primary"}
-            sx={{ 
+            sx={{
               color: isWinner ? "#64b5f6" : "#ffffff",
-              fontSize: { xs: '1.2rem', sm: '1.5rem' }
+              fontSize: { xs: "1.2rem", sm: "1.5rem" },
             }}
           >
             {score}
@@ -253,11 +274,11 @@ const RefreshProgress = ({ progress, lastUpdateTime }) => {
         padding: { xs: "4px 8px", sm: "4px 12px" },
       }}
     >
-      <Typography 
-        variant="caption" 
-        sx={{ 
+      <Typography
+        variant="caption"
+        sx={{
           opacity: 0.7,
-          fontSize: { xs: '0.7rem', sm: '0.75rem' }
+          fontSize: { xs: "0.7rem", sm: "0.75rem" },
         }}
       >
         Last update: {formatLastUpdate(lastUpdateTime)}
@@ -390,7 +411,10 @@ const Scoreboard = () => {
   const completedGames = games.filter((game) => game.time === "4Q 0:00");
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
+    <Container
+      maxWidth="md"
+      sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2, md: 3 } }}
+    >
       {/* Header with Progress */}
       <Box
         sx={{
@@ -401,7 +425,7 @@ const Scoreboard = () => {
           backgroundColor: "rgba(0, 0, 0, 0.2)",
           borderRadius: 1,
           padding: { xs: "8px 12px", sm: "8px 16px" },
-          flexDirection: { xs: 'column', sm: 'row' },
+          flexDirection: { xs: "column", sm: "row" },
           gap: { xs: 1, sm: 0 },
         }}
       >
