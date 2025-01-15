@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
+import BoxScore from "./BoxScore";
 import {
   Box,
   Card,
@@ -9,64 +10,94 @@ import {
   Collapse,
   CircularProgress,
   useTheme,
-  IconButton
-} from '@mui/material';
-import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
+  IconButton,
+} from "@mui/material";
+import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 
 // Import all logos
-import ATL from '../assets/nba_logos/ATL.svg';
-import BOS from '../assets/nba_logos/BOS.svg';
-import BKN from '../assets/nba_logos/BKN.svg';
-import CHA from '../assets/nba_logos/CHA.svg';
-import CHI from '../assets/nba_logos/CHI.svg';
-import CLE from '../assets/nba_logos/CLE.svg';
-import DAL from '../assets/nba_logos/DAL.svg';
-import DEN from '../assets/nba_logos/DEN.svg';
-import DET from '../assets/nba_logos/DET.svg';
-import GSW from '../assets/nba_logos/GSW.svg';
-import HOU from '../assets/nba_logos/HOU.svg';
-import IND from '../assets/nba_logos/IND.svg';
-import LAC from '../assets/nba_logos/LAC.svg';
-import LAL from '../assets/nba_logos/LAL.svg';
-import MEM from '../assets/nba_logos/MEM.svg';
-import MIA from '../assets/nba_logos/MIA.svg';
-import MIL from '../assets/nba_logos/MIL.svg';
-import MIN from '../assets/nba_logos/MIN.svg';
-import NOP from '../assets/nba_logos/NOP.svg';
-import NYK from '../assets/nba_logos/NYK.svg';
-import OKC from '../assets/nba_logos/OKC.svg';
-import ORL from '../assets/nba_logos/ORL.svg';
-import PHI from '../assets/nba_logos/PHI.svg';
-import PHX from '../assets/nba_logos/PHX.svg';
-import POR from '../assets/nba_logos/POR.svg';
-import SAC from '../assets/nba_logos/SAC.svg';
-import SAS from '../assets/nba_logos/SAS.svg';
-import TOR from '../assets/nba_logos/TOR.svg';
-import UTA from '../assets/nba_logos/UTA.svg';
-import WAS from '../assets/nba_logos/WAS.svg';
+import ATL from "../assets/nba_logos/ATL.svg";
+import BOS from "../assets/nba_logos/BOS.svg";
+import BKN from "../assets/nba_logos/BKN.svg";
+import CHA from "../assets/nba_logos/CHA.svg";
+import CHI from "../assets/nba_logos/CHI.svg";
+import CLE from "../assets/nba_logos/CLE.svg";
+import DAL from "../assets/nba_logos/DAL.svg";
+import DEN from "../assets/nba_logos/DEN.svg";
+import DET from "../assets/nba_logos/DET.svg";
+import GSW from "../assets/nba_logos/GSW.svg";
+import HOU from "../assets/nba_logos/HOU.svg";
+import IND from "../assets/nba_logos/IND.svg";
+import LAC from "../assets/nba_logos/LAC.svg";
+import LAL from "../assets/nba_logos/LAL.svg";
+import MEM from "../assets/nba_logos/MEM.svg";
+import MIA from "../assets/nba_logos/MIA.svg";
+import MIL from "../assets/nba_logos/MIL.svg";
+import MIN from "../assets/nba_logos/MIN.svg";
+import NOP from "../assets/nba_logos/NOP.svg";
+import NYK from "../assets/nba_logos/NYK.svg";
+import OKC from "../assets/nba_logos/OKC.svg";
+import ORL from "../assets/nba_logos/ORL.svg";
+import PHI from "../assets/nba_logos/PHI.svg";
+import PHX from "../assets/nba_logos/PHX.svg";
+import POR from "../assets/nba_logos/POR.svg";
+import SAC from "../assets/nba_logos/SAC.svg";
+import SAS from "../assets/nba_logos/SAS.svg";
+import TOR from "../assets/nba_logos/TOR.svg";
+import UTA from "../assets/nba_logos/UTA.svg";
+import WAS from "../assets/nba_logos/WAS.svg";
 
 // Logo mapping object
 const teamLogos = {
-  ATL, BOS, BKN, CHA, CHI, CLE, DAL, DEN, DET, GSW,
-  HOU, IND, LAC, LAL, MEM, MIA, MIL, MIN, NOP, NYK,
-  OKC, ORL, PHI, PHX, POR, SAC, SAS, TOR, UTA, WAS
+  ATL,
+  BOS,
+  BKN,
+  CHA,
+  CHI,
+  CLE,
+  DAL,
+  DEN,
+  DET,
+  GSW,
+  HOU,
+  IND,
+  LAC,
+  LAL,
+  MEM,
+  MIA,
+  MIL,
+  MIN,
+  NOP,
+  NYK,
+  OKC,
+  ORL,
+  PHI,
+  PHX,
+  POR,
+  SAC,
+  SAS,
+  TOR,
+  UTA,
+  WAS,
 };
 
 const fetchScores = async () => {
   try {
     // Try to get the browser's timezone
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const url = timezone 
+    const url = timezone
       ? `http://localhost:8000/?timezone=${encodeURIComponent(timezone)}`
-      : 'http://localhost:8000/';
-      
+      : "http://localhost:8000/";
+
     const response = await fetch(url);
     const data = await response.json();
     return data;
   } catch (error) {
     // If there's any error with timezone detection or encoding, fallback to default URL
-    console.warn('Error with timezone detection, falling back to default:', error);
-    const response = await fetch('http://localhost:8000/');
+    console.warn(
+      "Error with timezone detection, falling back to default:",
+      error
+    );
+    const response = await fetch("http://localhost:8000/");
     const data = await response.json();
     return data;
   }
@@ -76,14 +107,16 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
   const logoSrc = teamLogos[tricode];
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: 2,
-      flexDirection: isHomeTeam ? 'row-reverse' : 'row',
-      justifyContent: isHomeTeam ? 'flex-start' : 'flex-start',
-      minWidth: '200px'
-    }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        flexDirection: isHomeTeam ? "row-reverse" : "row",
+        justifyContent: isHomeTeam ? "flex-start" : "flex-start",
+        minWidth: "200px",
+      }}
+    >
       <Box
         component="img"
         src={logoSrc}
@@ -91,18 +124,18 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         sx={{
           width: 40,
           height: 40,
-          objectFit: 'contain'
+          objectFit: "contain",
         }}
       />
-      <Box sx={{ textAlign: isHomeTeam ? 'right' : 'left' }}>
+      <Box sx={{ textAlign: isHomeTeam ? "right" : "left" }}>
         <Typography variant="body1" fontWeight="bold">
           {teamName}
         </Typography>
-        {score !== '' && (
-          <Typography 
-            variant="h5" 
-            color={isWinner ? 'primary' : 'text.primary'}
-            sx={{ color: isWinner ? '#64b5f6' : '#ffffff' }}
+        {score !== "" && (
+          <Typography
+            variant="h5"
+            color={isWinner ? "primary" : "text.primary"}
+            sx={{ color: isWinner ? "#64b5f6" : "#ffffff" }}
           >
             {score}
           </Typography>
@@ -112,71 +145,77 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
   );
 };
 
-const GameCard = ({ game, isLive }) => {
+const GameCard = ({ game, isLive, onBoxScoreClick }) => {
   const theme = useTheme();
-  const [awayScore, homeScore] = game.score.split(' - ').map(score => parseInt(score) || 0);
+  const [awayScore, homeScore] = game.score
+    .split(" - ")
+    .map((score) => parseInt(score) || 0);
   const gameStatus = game.time;
-  const isScheduled = gameStatus.startsWith('Start:');
-  
+  const isScheduled = gameStatus.startsWith("Start:");
+
   // Format the game status display
-  const displayStatus = gameStatus === '0Q 0:00' ? 'Pre-Game 0:00' : gameStatus;
-  
+  const displayStatus = gameStatus === "0Q 0:00" ? "Pre-Game 0:00" : gameStatus;
+
   return (
-    <Card 
+    <Card
+      onClick={() => onBoxScoreClick(game.gameId)}
       sx={{
+        cursor: "pointer",
         mb: 2,
-        backgroundColor: 'rgb(45, 45, 45)',
-        boxShadow: 'none',
-        transition: 'transform 0.2s',
-        '&:hover': {
-          transform: 'scale(1.01)',
+        backgroundColor: "rgb(45, 45, 45)",
+        boxShadow: "none",
+        transition: "transform 0.2s",
+        "&:hover": {
+          transform: "scale(1.01)",
         },
-        height: '80px'
+        height: "80px",
       }}
     >
-      <CardContent sx={{ position: 'relative', p: '16px !important', height: '100%' }}>
-        <Stack 
-          direction="row" 
-          justifyContent="space-between" 
+      <CardContent
+        sx={{ position: "relative", p: "16px !important", height: "100%" }}
+      >
+        <Stack
+          direction="row"
+          justifyContent="space-between"
           alignItems="center"
-          sx={{ height: '100%' }}
+          sx={{ height: "100%" }}
         >
-          <TeamInfo 
+          <TeamInfo
             teamName={game.away_team}
             tricode={game.away_tricode}
-            score={isScheduled ? '' : awayScore}
+            score={isScheduled ? "" : awayScore}
             isWinner={!isScheduled && awayScore > homeScore}
             isHomeTeam={false}
           />
-          
-          <Box 
-            sx={{ 
-              position: 'absolute',
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              minWidth: '100px',
-              textAlign: 'center'
+
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              minWidth: "100px",
+              textAlign: "center",
             }}
           >
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               sx={{
-                color: '#ffffff',
+                color: "#ffffff",
                 opacity: 0.5,
-                letterSpacing: '0.5px',
+                letterSpacing: "0.5px",
                 fontWeight: 400,
-                fontSize: '0.875rem'
+                fontSize: "0.875rem",
               }}
             >
-              {isScheduled ? gameStatus.replace('Start: ', '') : displayStatus}
+              {isScheduled ? gameStatus.replace("Start: ", "") : displayStatus}
             </Typography>
           </Box>
-          
-          <TeamInfo 
+
+          <TeamInfo
             teamName={game.home_team}
             tricode={game.home_tricode}
-            score={isScheduled ? '' : homeScore}
+            score={isScheduled ? "" : homeScore}
             isWinner={!isScheduled && homeScore > awayScore}
             isHomeTeam={true}
           />
@@ -188,29 +227,31 @@ const GameCard = ({ game, isLive }) => {
 
 const RefreshProgress = ({ progress, lastUpdateTime }) => {
   const formatLastUpdate = (date) => {
-    if (!date) return '';
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!date) return "";
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: 2,
-      backgroundColor: 'rgba(0, 0, 0, 0.04)',
-      borderRadius: 1,
-      padding: '4px 12px',
-    }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        backgroundColor: "rgba(0, 0, 0, 0.04)",
+        borderRadius: 1,
+        padding: "4px 12px",
+      }}
+    >
       <Typography variant="caption" sx={{ opacity: 0.7 }}>
         Last update: {formatLastUpdate(lastUpdateTime)}
       </Typography>
-      <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-        <CircularProgress 
-          variant="determinate" 
-          value={progress} 
+      <Box sx={{ position: "relative", display: "inline-flex" }}>
+        <CircularProgress
+          variant="determinate"
+          value={progress}
           size={28}
           thickness={4}
-          sx={{ color: 'primary.main' }}
+          sx={{ color: "primary.main" }}
         />
         <Box
           sx={{
@@ -218,21 +259,21 @@ const RefreshProgress = ({ progress, lastUpdateTime }) => {
             left: 0,
             bottom: 0,
             right: 0,
-            position: 'absolute',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            position: "absolute",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              fontSize: '0.7rem',
-              fontWeight: 'bold',
-              color: 'primary.main'
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: "0.7rem",
+              fontWeight: "bold",
+              color: "primary.main",
             }}
           >
-            {Math.round(progress / 100 * 15)}s
+            {Math.round((progress / 100) * 20)}s
           </Typography>
         </Box>
       </Box>
@@ -242,6 +283,8 @@ const RefreshProgress = ({ progress, lastUpdateTime }) => {
 
 const Scoreboard = () => {
   const [games, setGames] = useState([]);
+  const [selectedGameId, setSelectedGameId] = useState(null);
+  const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
   const [progress, setProgress] = useState(0);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
@@ -253,7 +296,7 @@ const Scoreboard = () => {
       setLastUpdateTime(new Date());
       setProgress(0);
     } catch (error) {
-      console.error('Error fetching scores:', error);
+      console.error("Error fetching scores:", error);
     }
   }, []);
 
@@ -263,18 +306,18 @@ const Scoreboard = () => {
 
     // Set up progress timer
     const progressInterval = setInterval(() => {
-      setProgress(prev => {
+      setProgress((prev) => {
         if (prev >= 100) {
           return 0;
         }
-        return prev + (100 / 15); // Increment for smooth 15-second countdown
+        return prev + 100 / 20; // Increment for smooth 20-second countdown
       });
     }, 1000);
 
     // Set up data refresh timer (slightly earlier than visual countdown)
     const refreshInterval = setInterval(() => {
       updateScores();
-    }, 14200); // 14.2 seconds for estimated 800ms response time.
+    }, 19800); // 19.8 seconds
 
     return () => {
       clearInterval(progressInterval);
@@ -284,15 +327,16 @@ const Scoreboard = () => {
 
   // Helper function to parse period and time for sorting
   const parseGameTime = (time) => {
-    if (time.startsWith('Start:')) return { period: -1, minutes: 0, seconds: 0 };
-    
+    if (time.startsWith("Start:"))
+      return { period: -1, minutes: 0, seconds: 0 };
+
     const periodMatch = time.match(/(\d+)Q/);
     const timeMatch = time.match(/(\d+):(\d+)/);
-    
+
     const period = periodMatch ? parseInt(periodMatch[1]) : 0;
     const minutes = timeMatch ? parseInt(timeMatch[1]) : 0;
     const seconds = timeMatch ? parseInt(timeMatch[2]) : 0;
-    
+
     return { period, minutes, seconds };
   };
 
@@ -303,7 +347,7 @@ const Scoreboard = () => {
 
     // First sort by period (descending)
     if (timeB.period !== timeA.period) return timeB.period - timeA.period;
-    
+
     // Then sort by time (ascending)
     const totalSecondsA = timeA.minutes * 60 + timeA.seconds;
     const totalSecondsB = timeB.minutes * 60 + timeB.seconds;
@@ -312,61 +356,79 @@ const Scoreboard = () => {
 
   // Filter and sort games
   const liveGames = games
-    .filter(game => !game.time.startsWith('Start:') && 
-                   game.time !== '4Q 0:00' && 
-                   game.time !== '0Q 10:44' && 
-                   game.time !== '0Q 10:39')
+    .filter(
+      (game) =>
+        !game.time.startsWith("Start:") &&
+        game.time !== "4Q 0:00" &&
+        game.time !== "0Q 10:44" &&
+        game.time !== "0Q 10:39"
+    )
     .sort(sortGames);
 
-  const scheduledGames = games
-    .filter(game => game.time.startsWith('Start:') || 
-                   game.time === '0Q 10:44' || 
-                   game.time === '0Q 10:39');
+  const scheduledGames = games.filter(
+    (game) =>
+      game.time.startsWith("Start:") ||
+      game.time === "0Q 10:44" ||
+      game.time === "0Q 10:39"
+  );
 
-  const completedGames = games
-    .filter(game => game.time === '4Q 0:00');
+  const completedGames = games.filter((game) => game.time === "4Q 0:00");
+
+  const handleBoxScoreClick = (gameId) => {
+    setSelectedGameId(gameId);
+    setBoxScoreOpen(true);
+  };
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       {/* Header with Progress */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3,
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        borderRadius: 1,
-        padding: '8px 16px'
-      }}>
-        <Typography variant="h6">
-          NBA Scoreboard
-        </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+          backgroundColor: "rgba(0, 0, 0, 0.2)",
+          borderRadius: 1,
+          padding: "8px 16px",
+        }}
+      >
+        <Typography variant="h6">NBA Scoreboard</Typography>
         <RefreshProgress progress={progress} lastUpdateTime={lastUpdateTime} />
       </Box>
 
       {/* Live Games Section */}
       {liveGames.length > 0 && (
         <Box mb={4}>
-          <Typography variant="h6" gutterBottom sx={{ 
-            display: 'flex', 
-            alignItems: 'center'
-          }}>
+          <Typography
+            variant="h6"
+            gutterBottom
+            sx={{
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
             <Box
               component="span"
               sx={{
                 width: 8,
                 height: 8,
-                borderRadius: '50%',
-                backgroundColor: 'error.main',
-                display: 'inline-block',
+                borderRadius: "50%",
+                backgroundColor: "error.main",
+                display: "inline-block",
                 mr: 1,
-                animation: 'pulse 2s infinite'
+                animation: "pulse 2s infinite",
               }}
             />
             Live Games
           </Typography>
           {liveGames.map((game, index) => (
-            <GameCard key={index} game={game} isLive={true} />
+            <GameCard
+              key={index}
+              game={game}
+              isLive={true}
+              onBoxScoreClick={handleBoxScoreClick}
+            />
           ))}
         </Box>
       )}
@@ -378,7 +440,12 @@ const Scoreboard = () => {
             Upcoming Games
           </Typography>
           {scheduledGames.map((game, index) => (
-            <GameCard key={index} game={game} isLive={false} />
+            <GameCard
+              key={index}
+              game={game}
+              isLive={false}
+              onBoxScoreClick={handleBoxScoreClick}
+            />
           ))}
         </Box>
       )}
@@ -386,13 +453,17 @@ const Scoreboard = () => {
       {/* Completed Games Section */}
       {completedGames.length > 0 && (
         <Box>
-          <Typography variant="h6" gutterBottom sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
+          <Typography
+            variant="h6"
+            gutterBottom
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             Completed Games
-            <IconButton 
+            <IconButton
               size="small"
               onClick={() => setShowAllGames(!showAllGames)}
               sx={{ ml: 1 }}
@@ -400,14 +471,28 @@ const Scoreboard = () => {
               {showAllGames ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
             </IconButton>
           </Typography>
-          
+
           <Collapse in={showAllGames}>
             {completedGames.map((game, index) => (
-              <GameCard key={index} game={game} isLive={false} />
+              <GameCard
+                key={index}
+                game={game}
+                isLive={false}
+                onBoxScoreClick={handleBoxScoreClick}
+              />
             ))}
           </Collapse>
         </Box>
       )}
+
+      <BoxScore
+        gameId={selectedGameId}
+        open={boxScoreOpen}
+        onClose={() => {
+          setBoxScoreOpen(false);
+          setSelectedGameId(null);
+        }}
+      />
     </Container>
   );
 };

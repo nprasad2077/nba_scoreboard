@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 import pandas as pd
 from nba_api.live.nba.endpoints import scoreboard, boxscore
 import re
@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from dateutil import parser
 import pytz
 import uvicorn
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="NBA Live Scores API",
@@ -25,6 +25,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class PlayerStatistics(BaseModel):
+    assists: int = Field(default=0)
+    blocks: int = Field(default=0)
+    blocksReceived: int = Field(default=0)
+    fieldGoalsAttempted: int = Field(default=0)
+    fieldGoalsMade: int = Field(default=0)
+    fieldGoalsPercentage: float = Field(default=0.0)
+    foulsOffensive: int = Field(default=0)
+    foulsDrawn: int = Field(default=0)
+    foulsPersonal: int = Field(default=0)
+    foulsTechnical: int = Field(default=0)
+    freeThrowsAttempted: int = Field(default=0)
+    freeThrowsMade: int = Field(default=0)
+    freeThrowsPercentage: float = Field(default=0.0)
+    minutes: str = Field(default="0")
+    plusMinusPoints: int = Field(default=0)
+    points: int = Field(default=0)
+    reboundsDefensive: int = Field(default=0)
+    reboundsOffensive: int = Field(default=0)
+    reboundsTotal: int = Field(default=0)
+    steals: int = Field(default=0)
+    threePointersAttempted: int = Field(default=0)
+    threePointersMade: int = Field(default=0)
+    threePointersPercentage: float = Field(default=0.0)
+    turnovers: int = Field(default=0)
+
+class PlayerData(BaseModel):
+    name: str
+    position: Optional[str] = ""
+    starter: bool = False
+    oncourt: bool = False
+    jerseyNum: str = ""
+    status: str = ""
+    statistics: PlayerStatistics
+
+class TeamBoxScore(BaseModel):
+    teamName: str
+    teamCity: str
+    teamTricode: str
+    players: List[PlayerData]
+
+class GameBoxScore(BaseModel):
+    gameId: str
+    home_team: TeamBoxScore
+    away_team: TeamBoxScore
+
 class GameScore(BaseModel):
     away_team: str
     away_tricode: str
@@ -32,6 +78,7 @@ class GameScore(BaseModel):
     home_team: str
     home_tricode: str
     time: str
+    gameId: str
 
 def format_time(quarter: int, time: str) -> str:
     if time is None:
@@ -63,30 +110,16 @@ def parse_game_time(time_str: str) -> int:
         return 999999  # Handle any parsing errors by placing at the end
 
 def format_game_start_time(game_time_utc: str, tz_name: Optional[str] = None) -> str:
-    """
-    Format game start time according to specified timezone
-    
-    Args:
-        game_time_utc: UTC time string
-        tz_name: Timezone name (e.g., 'America/Chicago')
-    
-    Returns:
-        Formatted time string in the specified timezone
-    """
     try:
-        # Parse the UTC time
         game_time = parser.parse(game_time_utc).replace(tzinfo=timezone.utc)
         
         if tz_name:
             try:
-                # Convert to specified timezone
                 local_tz = pytz.timezone(tz_name)
                 game_time = game_time.astimezone(local_tz)
             except pytz.exceptions.UnknownTimeZoneError:
-                # Fall back to system timezone if specified timezone is invalid
                 game_time = game_time.astimezone()
         else:
-            # Use system timezone if none specified
             game_time = game_time.astimezone()
             
         return game_time.strftime("%I:%M %p")
@@ -104,7 +137,6 @@ def get_live_scores(timezone: Optional[str] = None) -> List[Dict]:
             gameId = game['gameId']
             
             try:
-                # Attempt to get live game data
                 box = boxscore.BoxScore(gameId)
                 game_details = box.game.get_dict()
                 
@@ -122,11 +154,11 @@ def get_live_scores(timezone: Optional[str] = None) -> List[Dict]:
                     "score": f"{away_stats['statistics']['points']} - {home_stats['statistics']['points']}",
                     "home_team": f"{home_stats['teamCity']} {home_stats['teamName']}",
                     "home_tricode": home_stats['teamTricode'],
-                    "time": formatted_time
+                    "time": formatted_time,
+                    "gameId": gameId
                 })
                 
             except Exception as game_error:
-                # If we can't get live data, use scheduled game info
                 start_time = format_game_start_time(game['gameTimeUTC'], timezone)
                 
                 game_data.append({
@@ -135,13 +167,65 @@ def get_live_scores(timezone: Optional[str] = None) -> List[Dict]:
                     "score": "0 - 0",
                     "home_team": f"{game['homeTeam']['teamCity']} {game['homeTeam']['teamName']}",
                     "home_tricode": game['homeTeam']['teamTricode'],
-                    "time": f"Start: {start_time}"
+                    "time": f"Start: {start_time}",
+                    "gameId": gameId
                 })
         
-        # Sort games by time, with scheduled games at the end
         game_data.sort(key=lambda x: parse_game_time(x["time"]))
         return game_data
     
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def get_box_score(game_id: str) -> GameBoxScore:
+    try:
+        box = boxscore.BoxScore(game_id)
+        
+        # Process home team players
+        home_players = []
+        for player in box.home_team_player_stats.get_dict():
+            home_players.append(PlayerData(
+                name=player.get('name', ''),
+                position=player.get('position', ''),
+                starter=player.get('starter', False),
+                oncourt=player.get('oncourt', False),
+                jerseyNum=player.get('jerseyNum', ''),
+                status=player.get('status', ''),
+                statistics=PlayerStatistics(**player.get('statistics', {}))
+            ))
+        
+        # Process away team players
+        away_players = []
+        for player in box.away_team_player_stats.get_dict():
+            away_players.append(PlayerData(
+                name=player.get('name', ''),
+                position=player.get('position', ''),
+                starter=player.get('starter', False),
+                oncourt=player.get('oncourt', False),
+                jerseyNum=player.get('jerseyNum', ''),
+                status=player.get('status', ''),
+                statistics=PlayerStatistics(**player.get('statistics', {}))
+            ))
+        
+        home_team = box.home_team_stats.get_dict()
+        away_team = box.away_team_stats.get_dict()
+        
+        return GameBoxScore(
+            gameId=game_id,
+            home_team=TeamBoxScore(
+                teamName=home_team['teamName'],
+                teamCity=home_team['teamCity'],
+                teamTricode=home_team['teamTricode'],
+                players=home_players
+            ),
+            away_team=TeamBoxScore(
+                teamName=away_team['teamName'],
+                teamCity=away_team['teamCity'],
+                teamTricode=away_team['teamTricode'],
+                players=away_players
+            )
+        )
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -157,6 +241,19 @@ async def read_scores(timezone: Optional[str] = Query(None, description="Timezon
         List[GameScore]: A list of all current NBA games with scores
     """
     return get_live_scores(timezone)
+
+@app.get("/boxscore/{game_id}", response_model=GameBoxScore)
+async def read_box_score(game_id: str):
+    """
+    Get box score for a specific game
+    
+    Parameters:
+        game_id: The ID of the game to get box score for
+    
+    Returns:
+        GameBoxScore: Detailed box score statistics for the specified game
+    """
+    return get_box_score(game_id)
 
 @app.get("/health")
 async def health_check():
