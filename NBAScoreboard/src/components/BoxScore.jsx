@@ -36,14 +36,30 @@ const headCells = [
 function descendingComparator(a, b, orderBy) {
   // Handle special cases
   if (orderBy === "fieldGoals") {
-    const aFG = `${a.statistics.fieldGoalsMade}-${a.statistics.fieldGoalsAttempted}`;
-    const bFG = `${b.statistics.fieldGoalsMade}-${b.statistics.fieldGoalsAttempted}`;
-    return bFG.localeCompare(aFG);
+    // Sort by fieldGoalsMade
+    const aMade = a.statistics.fieldGoalsMade ?? 0;
+    const bMade = b.statistics.fieldGoalsMade ?? 0;
+    if (bMade !== aMade) {
+      return bMade - aMade;
+    }
+    // If made values are equal, use attempts as secondary sort
+    return (
+      (b.statistics.fieldGoalsAttempted ?? 0) -
+      (a.statistics.fieldGoalsAttempted ?? 0)
+    );
   }
   if (orderBy === "threePointers") {
-    const a3PT = `${a.statistics.threePointersMade}-${a.statistics.threePointersAttempted}`;
-    const b3PT = `${b.statistics.threePointersMade}-${b.statistics.threePointersAttempted}`;
-    return b3PT.localeCompare(a3PT);
+    // Sort by threePointersMade
+    const aMade = a.statistics.threePointersMade ?? 0;
+    const bMade = b.statistics.threePointersMade ?? 0;
+    if (bMade !== aMade) {
+      return bMade - aMade;
+    }
+    // If made values are equal, use attempts as secondary sort
+    return (
+      (b.statistics.threePointersAttempted ?? 0) -
+      (a.statistics.threePointersAttempted ?? 0)
+    );
   }
   if (orderBy === "minutes") {
     const aMinutes = a.statistics.minutes.match(/PT(\d+)M/)
