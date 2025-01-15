@@ -94,7 +94,7 @@ function EnhancedTableHead(props) {
           >
             <TableSortLabel
               active={orderBy === headCell.id}
-              direction={orderBy === headCell.id ? order : "asc"}
+              direction={orderBy === headCell.id ? order : "desc"}
               onClick={createSortHandler(headCell.id)}
               sx={{
                 "&.MuiTableSortLabel-root": {
@@ -108,7 +108,17 @@ function EnhancedTableHead(props) {
                 },
                 "& .MuiTableSortLabel-icon": {
                   color: "white !important",
+                  transition: "transform 150ms ease",
                 },
+                // Specific transforms for different states
+                "&.MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon": {
+                  transform:
+                    order === "desc" ? "rotate(0deg)" : "rotate(180deg)",
+                },
+                "&.MuiTableSortLabel-root:not(.Mui-active) .MuiTableSortLabel-icon":
+                  {
+                    transform: "rotate(0deg)", // Initial state for inactive columns
+                  },
               }}
             >
               {headCell.label}
@@ -144,11 +154,11 @@ function TeamBoxScoreTable({ team, teamName }) {
   const [order, setOrder] = useState("desc");
   const [orderBy, setOrderBy] = useState("minutes");
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(7);
+  const [rowsPerPage, setRowsPerPage] = useState(8);
 
   const handleRequestSort = (event, property) => {
-    const isAsc = orderBy === property && order === "asc";
-    setOrder(isAsc ? "desc" : "asc");
+    const isAsc = orderBy === property && order === "desc";
+    setOrder(isAsc ? "asc" : "desc");
     setOrderBy(property);
   };
 
@@ -244,7 +254,7 @@ function TeamBoxScoreTable({ team, teamName }) {
           </Table>
         </TableContainer>
         <TablePagination
-          rowsPerPageOptions={[7, 14, 25]}
+          rowsPerPageOptions={[8, 14, 25]}
           component="div"
           count={activePlayers.length}
           rowsPerPage={rowsPerPage}
