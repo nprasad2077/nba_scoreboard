@@ -179,7 +179,7 @@ def get_live_scores(timezone: Optional[str] = None) -> List[Dict]:
 
 def get_box_score(game_id: str) -> GameBoxScore:
     try:
-        box = boxscore.BoxScore(game_id)
+        box = boxscore.BoxScore('0022400551')
         
         # Process home team players
         home_players = []

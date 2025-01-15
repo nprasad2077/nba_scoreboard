@@ -24,29 +24,27 @@ import { visuallyHidden } from "@mui/utils";
 
 const headCells = [
   { id: "name", numeric: false, label: "PLAYER" },
-  { id: "position", numeric: false, label: "POS" },
   { id: "minutes", numeric: false, label: "MIN" },
   { id: "points", numeric: true, label: "PTS" },
   { id: "reboundsTotal", numeric: true, label: "REB" },
   { id: "assists", numeric: true, label: "AST" },
-  { id: "steals", numeric: true, label: "STL" },
-  { id: "blocks", numeric: true, label: "BLK" },
-  { id: "turnovers", numeric: true, label: "TO" },
-  { id: "foulsPersonal", numeric: true, label: "PF" },
+  { id: "fieldGoals", numeric: true, label: "FG" },
+  { id: "threePointers", numeric: true, label: "3PT" },
   { id: "plusMinusPoints", numeric: true, label: "+/-" },
-  { id: "fieldGoalsMade", numeric: true, label: "FGM" },
-  { id: "fieldGoalsAttempted", numeric: true, label: "FGA" },
-  { id: "fieldGoalsPercentage", numeric: true, label: "FG%" },
-  { id: "threePointersMade", numeric: true, label: "3PM" },
-  { id: "threePointersAttempted", numeric: true, label: "3PA" },
-  { id: "threePointersPercentage", numeric: true, label: "3P%" },
-  { id: "freeThrowsMade", numeric: true, label: "FTM" },
-  { id: "freeThrowsAttempted", numeric: true, label: "FTA" },
-  { id: "freeThrowsPercentage", numeric: true, label: "FT%" },
 ];
 
 function descendingComparator(a, b, orderBy) {
-  // Handle minutes specially since it's in a special format
+  // Handle special cases
+  if (orderBy === "fieldGoals") {
+    const aFG = `${a.statistics.fieldGoalsMade}-${a.statistics.fieldGoalsAttempted}`;
+    const bFG = `${b.statistics.fieldGoalsMade}-${b.statistics.fieldGoalsAttempted}`;
+    return bFG.localeCompare(aFG);
+  }
+  if (orderBy === "threePointers") {
+    const a3PT = `${a.statistics.threePointersMade}-${a.statistics.threePointersAttempted}`;
+    const b3PT = `${b.statistics.threePointersMade}-${b.statistics.threePointersAttempted}`;
+    return b3PT.localeCompare(a3PT);
+  }
   if (orderBy === "minutes") {
     const aMinutes = a.statistics.minutes.match(/PT(\d+)M/)
       ? parseInt(a.statistics.minutes.match(/PT(\d+)M/)[1])
@@ -58,14 +56,8 @@ function descendingComparator(a, b, orderBy) {
   }
 
   // For all other fields
-  const aValue =
-    orderBy === "name" || orderBy === "position"
-      ? a[orderBy]
-      : a.statistics[orderBy] ?? 0;
-  const bValue =
-    orderBy === "name" || orderBy === "position"
-      ? b[orderBy]
-      : b.statistics[orderBy] ?? 0;
+  const aValue = orderBy === "name" ? a[orderBy] : a.statistics[orderBy] ?? 0;
+  const bValue = orderBy === "name" ? b[orderBy] : b.statistics[orderBy] ?? 0;
 
   if (bValue < aValue) return -1;
   if (bValue > aValue) return 1;
@@ -205,7 +197,7 @@ function TeamBoxScoreTable({ team, teamName }) {
               onRequestSort={handleRequestSort}
             />
             <TableBody>
-              {visibleRows.map((player, index) => (
+              {visibleRows.map((player) => (
                 <TableRow
                   hover
                   tabIndex={-1}
@@ -221,9 +213,6 @@ function TeamBoxScoreTable({ team, teamName }) {
                 >
                   <TableCell sx={{ color: "white" }}>{player.name}</TableCell>
                   <TableCell sx={{ color: "white" }}>
-                    {player.position}
-                  </TableCell>
-                  <TableCell sx={{ color: "white" }}>
                     {formatMinutes(player.statistics.minutes)}
                   </TableCell>
                   <TableCell align="right" sx={{ color: "white" }}>
@@ -236,55 +225,19 @@ function TeamBoxScoreTable({ team, teamName }) {
                     {player.statistics.assists}
                   </TableCell>
                   <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.steals}
+                    {`${player.statistics.fieldGoalsMade}-${player.statistics.fieldGoalsAttempted}`}
                   </TableCell>
                   <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.blocks}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.turnovers}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.foulsPersonal}
+                    {`${player.statistics.threePointersMade}-${player.statistics.threePointersAttempted}`}
                   </TableCell>
                   <TableCell align="right" sx={{ color: "white" }}>
                     {player.statistics.plusMinusPoints}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.fieldGoalsMade}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.fieldGoalsAttempted}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {(player.statistics.fieldGoalsPercentage * 100).toFixed(1)}%
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.threePointersMade}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.threePointersAttempted}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {(player.statistics.threePointersPercentage * 100).toFixed(
-                      1
-                    )}
-                    %
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.freeThrowsMade}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {player.statistics.freeThrowsAttempted}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
-                    {(player.statistics.freeThrowsPercentage * 100).toFixed(1)}%
                   </TableCell>
                 </TableRow>
               ))}
               {emptyRows > 0 && (
                 <TableRow style={{ height: 33 * emptyRows }}>
-                  <TableCell colSpan={20} sx={{ color: "white" }} />
+                  <TableCell colSpan={8} sx={{ color: "white" }} />
                 </TableRow>
               )}
             </TableBody>
