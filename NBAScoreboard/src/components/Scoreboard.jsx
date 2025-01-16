@@ -1,3 +1,4 @@
+// ScoreBoard.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import BoxScore from "./BoxScore";
 import {
@@ -45,7 +46,6 @@ import TOR from "../assets/nba_logos/TOR.svg";
 import UTA from "../assets/nba_logos/UTA.svg";
 import WAS from "../assets/nba_logos/WAS.svg";
 
-// Logo mapping object
 const teamLogos = {
   ATL,
   BOS,
@@ -80,7 +80,7 @@ const teamLogos = {
 };
 
 /**
- * Renders away/home team info (logo + name + optional score)
+ * Renders away/home team info (logo + name + optional score).
  */
 const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
   const logoSrc = teamLogos[tricode];
@@ -125,7 +125,8 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
 };
 
 /**
- * Single game card component
+ * Single game card component.
+ * - If a game has not started (time starts with "Start:" or "0Q"), do NOT call onBoxScoreClick.
  */
 const GameCard = ({ game, onBoxScoreClick }) => {
   const theme = useTheme();
@@ -134,23 +135,35 @@ const GameCard = ({ game, onBoxScoreClick }) => {
     .map((score) => parseInt(score) || 0);
 
   const gameStatus = game.time;
-  // A quick check to see if the game has not yet started
-  const isScheduled = gameStatus.startsWith("Start:");
+  
+  // Check if game is not started yet:
+  const isNotStarted =
+    gameStatus.startsWith("Start:") || gameStatus.startsWith("0Q");
+
+  // We'll hide the score for upcoming games (isNotStarted).
+  const awayDisplayScore = isNotStarted ? "" : awayScore;
+  const homeDisplayScore = isNotStarted ? "" : homeScore;
 
   // Format the game status display (handle "0Q 0:00" as pre-game, etc.)
   const displayStatus = gameStatus === "0Q 0:00" ? "Pre-Game 0:00" : gameStatus;
 
   return (
     <Card
-      onClick={() => onBoxScoreClick(game.gameId)}
+      // Only call onBoxScoreClick if the game has started (i.e., isNotStarted === false)
+      onClick={() => {
+        if (!isNotStarted) {
+          onBoxScoreClick(game.gameId);
+        }
+      }}
       sx={{
-        cursor: "pointer",
+        // Change the cursor to indicate non-clickable if game not started
+        cursor: isNotStarted ? "default" : "pointer",
         mb: 2,
         backgroundColor: "rgb(45, 45, 45)",
         boxShadow: "none",
         transition: "transform 0.2s",
         "&:hover": {
-          transform: "scale(1.01)",
+          transform: isNotStarted ? "none" : "scale(1.01)",
         },
         height: "80px",
       }}
@@ -167,8 +180,8 @@ const GameCard = ({ game, onBoxScoreClick }) => {
           <TeamInfo
             teamName={game.away_team}
             tricode={game.away_tricode}
-            score={isScheduled ? "" : awayScore}
-            isWinner={!isScheduled && awayScore > homeScore}
+            score={awayDisplayScore}
+            isWinner={!isNotStarted && awayScore > homeScore}
             isHomeTeam={false}
           />
 
@@ -192,15 +205,17 @@ const GameCard = ({ game, onBoxScoreClick }) => {
                 fontSize: "0.875rem",
               }}
             >
-              {isScheduled ? gameStatus.replace("Start: ", "") : displayStatus}
+              {isNotStarted
+                ? gameStatus.replace("Start: ", "") // e.g. "7:30 PM"
+                : displayStatus}
             </Typography>
           </Box>
 
           <TeamInfo
             teamName={game.home_team}
             tricode={game.home_tricode}
-            score={isScheduled ? "" : homeScore}
-            isWinner={!isScheduled && homeScore > awayScore}
+            score={homeDisplayScore}
+            isWinner={!isNotStarted && homeScore > awayScore}
             isHomeTeam={true}
           />
         </Stack>
@@ -312,7 +327,9 @@ const Scoreboard = () => {
   const completedGames = games.filter((game) => game.time === "Final");
 
   /**
-   * Click handler to show the BoxScore for a selected game
+   * Click handler to show the BoxScore for a selected game.
+   * (This is only called if the game has started, because
+   *  we prevent the click in <GameCard> for not-started games.)
    */
   const handleBoxScoreClick = (gameId) => {
     setSelectedGameId(gameId);
@@ -422,8 +439,8 @@ const Scoreboard = () => {
 
       {/**
        * BoxScore component still uses the REST endpoint `GET /boxscore/{game_id}`
-       * No changes needed there except you might want to confirm you have a `gameId`
-       * in your WebSocket response so BoxScore can look it up correctly.
+       * We won't call it for games that have not started, because <GameCard>
+       * prevents the click if `game.time` starts with "Start:" or "0Q".
        */}
       <BoxScore
         gameId={selectedGameId}

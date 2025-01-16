@@ -233,7 +233,7 @@ async def fetch_and_broadcast_updates():
 
             # Sleep 1 second between each scoreboard fetch
             await asyncio.sleep(1)
-            print('Fetch NBA')
+            logger.info(" Ping NBA")
 
         except Exception as e:
             logger.error(f"Error in update loop: {e}")
