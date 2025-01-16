@@ -9,12 +9,15 @@ import json
 import logging
 from dateutil import parser
 import re
+
 from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ========== NEW GLOBAL VARIABLE FOR TRACKING OLD SCOREBOARD ==========
+previous_scoreboard_data: List[Dict] = []
 
 class GameStateManager:
     def __init__(self):
@@ -58,10 +61,8 @@ class GameStateManager:
             {"period": 0, "clock": "", "status": 1, "minutes": 12, "seconds": 0},
         )
 
-
 # Create a global instance
 game_state_manager = GameStateManager()
-
 
 def format_time(game) -> str:
     """Format game time based on game status and period"""
@@ -90,7 +91,7 @@ def format_time(game) -> str:
 
         # Handle period-specific cases
         if period > 4:
-            period_display = "OT" if period == 5 else f"{period-4}OT"
+            period_display = "OT" if period == 5 else f"{period - 4}OT"
         else:
             period_display = f"{period}Q"
 
@@ -100,7 +101,6 @@ def format_time(game) -> str:
         return "Final"
 
     return "0Q 0:00"
-
 
 def format_game_data(games: List[Dict]) -> List[Dict]:
     """Format games data into required structure"""
@@ -132,8 +132,8 @@ def format_game_data(games: List[Dict]) -> List[Dict]:
         formatted_games.append(formatted_game)
 
     # Sort games: In Progress -> Not Started -> Final
-    def sort_key(game):
-        time = game["time"]
+    def sort_key(g):
+        time = g["time"]
         if time == "Final":
             return (2, time)
         if "Q" in time or "OT" in time:
@@ -141,6 +141,35 @@ def format_game_data(games: List[Dict]) -> List[Dict]:
         return (1, time)
 
     return sorted(formatted_games, key=sort_key)
+
+# ========== NEW COMPARISON FUNCTION ==========
+def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
+    """Return True if there's a difference in the fields we care about."""
+    if len(old_data) != len(new_data):
+        return True
+
+    # Create a quick lookup by gameId from the old_data
+    old_map = {g["gameId"]: g for g in old_data}
+
+    for new_game in new_data:
+        new_id = new_game["gameId"]
+        old_game = old_map.get(new_id)
+        # If it's a new gameId, definitely changed
+        if not old_game:
+            return True
+
+        # Compare only the fields you actually render
+        if (
+            old_game["time"] != new_game["time"] or
+            old_game["score"] != new_game["score"] or
+            old_game["away_team"] != new_game["away_team"] or
+            old_game["home_team"] != new_game["home_team"] or
+            old_game["away_tricode"] != new_game["away_tricode"] or
+            old_game["home_tricode"] != new_game["home_tricode"]
+        ):
+            return True
+
+    return False
 
 
 app = FastAPI()
@@ -153,7 +182,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 class ConnectionManager:
     def __init__(self):
@@ -183,12 +211,13 @@ class ConnectionManager:
 
             self.active_connections -= dead_connections
 
-
 manager = ConnectionManager()
 
-
+# ========== MODIFIED BACKGROUND TASK WITH COMPARISON ==========
 async def fetch_and_broadcast_updates():
-    """Background task to fetch and broadcast updates"""
+    """Background task to fetch scoreboard data and only broadcast on changes."""
+    global previous_scoreboard_data
+
     while True:
         try:
             board = scoreboard.ScoreBoard()
@@ -196,25 +225,30 @@ async def fetch_and_broadcast_updates():
 
             if games_data:
                 formatted_data = format_game_data(games_data)
-                await manager.broadcast(formatted_data)
 
+                # Only broadcast if there's a change
+                if not previous_scoreboard_data or scoreboard_changed(previous_scoreboard_data, formatted_data):
+                    await manager.broadcast(formatted_data)
+                    previous_scoreboard_data = formatted_data
+
+            # Sleep 1 second between each scoreboard fetch
             await asyncio.sleep(1)
+            print('Fetch NBA')
 
         except Exception as e:
             logger.error(f"Error in update loop: {e}")
             await asyncio.sleep(5)
-
 
 def get_box_score(game_id: str) -> GameBoxScore:
     """
     Fetch detailed box score data for a specific game_id using nba_api.
     """
     try:
-        box = boxscore.BoxScore(game_id)
+        b = boxscore.BoxScore(game_id)
 
         # Process home team players
         home_players = []
-        for player in box.home_team_player_stats.get_dict():
+        for player in b.home_team_player_stats.get_dict():
             home_players.append(
                 PlayerData(
                     name=player.get("name", ""),
@@ -229,7 +263,7 @@ def get_box_score(game_id: str) -> GameBoxScore:
 
         # Process away team players
         away_players = []
-        for player in box.away_team_player_stats.get_dict():
+        for player in b.away_team_player_stats.get_dict():
             away_players.append(
                 PlayerData(
                     name=player.get("name", ""),
@@ -243,8 +277,8 @@ def get_box_score(game_id: str) -> GameBoxScore:
             )
 
         # Get team-level stats/dict
-        home_team = box.home_team_stats.get_dict()
-        away_team = box.away_team_stats.get_dict()
+        home_team = b.home_team_stats.get_dict()
+        away_team = b.away_team_stats.get_dict()
 
         return GameBoxScore(
             gameId=game_id,
@@ -263,9 +297,7 @@ def get_box_score(game_id: str) -> GameBoxScore:
         )
 
     except Exception as e:
-        # Use FastAPI's HTTPException to return an error
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -286,27 +318,15 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket error: {e}")
         await manager.disconnect(websocket)
 
-
 @app.get("/boxscore/{game_id}", response_model=GameBoxScore)
 async def read_box_score(game_id: str):
-    """
-    Get box score for a specific game.
-
-    Parameters:
-        game_id: The ID of the game (e.g., '0022400551').
-
-    Returns:
-        GameBoxScore: Detailed box score statistics for the specified game.
-    """
+    """Get box score for a specific game."""
     return get_box_score(game_id)
-
 
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(fetch_and_broadcast_updates())
 
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)
