@@ -8,9 +8,8 @@ import {
   Container,
   Stack,
   Collapse,
-  CircularProgress,
-  useTheme,
   IconButton,
+  useTheme,
 } from "@mui/material";
 import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 
@@ -80,29 +79,9 @@ const teamLogos = {
   WAS,
 };
 
-const fetchScores = async () => {
-  try {
-    // Try to get the browser's timezone
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const url = timezone
-      ? `http://localhost:8000/?timezone=${encodeURIComponent(timezone)}`
-      : "http://localhost:8000/";
-
-    const response = await fetch(url);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    // If there's any error with timezone detection or encoding, fallback to default URL
-    console.warn(
-      "Error with timezone detection, falling back to default:",
-      error
-    );
-    const response = await fetch("http://localhost:8000/");
-    const data = await response.json();
-    return data;
-  }
-};
-
+/**
+ * Renders away/home team info (logo + name + optional score)
+ */
 const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
   const logoSrc = teamLogos[tricode];
 
@@ -145,15 +124,20 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
   );
 };
 
-const GameCard = ({ game, isLive, onBoxScoreClick }) => {
+/**
+ * Single game card component
+ */
+const GameCard = ({ game, onBoxScoreClick }) => {
   const theme = useTheme();
   const [awayScore, homeScore] = game.score
     .split(" - ")
     .map((score) => parseInt(score) || 0);
+
   const gameStatus = game.time;
+  // A quick check to see if the game has not yet started
   const isScheduled = gameStatus.startsWith("Start:");
 
-  // Format the game status display
+  // Format the game status display (handle "0Q 0:00" as pre-game, etc.)
   const displayStatus = gameStatus === "0Q 0:00" ? "Pre-Game 0:00" : gameStatus;
 
   return (
@@ -225,112 +209,62 @@ const GameCard = ({ game, isLive, onBoxScoreClick }) => {
   );
 };
 
-const RefreshProgress = ({ progress, lastUpdateTime }) => {
-  const formatLastUpdate = (date) => {
-    if (!date) return "";
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        backgroundColor: "rgba(0, 0, 0, 0.04)",
-        borderRadius: 1,
-        padding: "4px 12px",
-      }}
-    >
-      <Typography variant="caption" sx={{ opacity: 0.7 }}>
-        Last update: {formatLastUpdate(lastUpdateTime)}
-      </Typography>
-      <Box sx={{ position: "relative", display: "inline-flex" }}>
-        <CircularProgress
-          variant="determinate"
-          value={progress}
-          size={28}
-          thickness={4}
-          sx={{ color: "primary.main" }}
-        />
-        <Box
-          sx={{
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: 0,
-            position: "absolute",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              fontSize: "0.7rem",
-              fontWeight: "bold",
-              color: "primary.main",
-            }}
-          >
-            {Math.round((progress / 100) * 20)}s
-          </Typography>
-        </Box>
-      </Box>
-    </Box>
-  );
-};
-
+/**
+ * Main scoreboard component
+ */
 const Scoreboard = () => {
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
-  const [progress, setProgress] = useState(0);
+
+  // Track the last time we received an update (for display only)
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
-  const updateScores = useCallback(async () => {
-    try {
-      const data = await fetchScores();
-      setGames(data);
-      setLastUpdateTime(new Date());
-      setProgress(0);
-    } catch (error) {
-      console.error("Error fetching scores:", error);
-    }
+  /**
+   * On mount, establish a WebSocket connection to get live updates.
+   */
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:8000/ws");
+
+    ws.onopen = () => {
+      console.log("Connected to NBA Stats WebSocket");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const gamesData = JSON.parse(event.data);
+        setGames(gamesData);
+        setLastUpdateTime(new Date());
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    ws.onclose = () => {
+      console.log("Disconnected from NBA Stats WebSocket");
+    };
+
+    // Cleanup: close the WS on unmount
+    return () => {
+      ws.close();
+    };
   }, []);
 
-  useEffect(() => {
-    // Initial load
-    updateScores();
-
-    // Set up progress timer
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          return 0;
-        }
-        return prev + 100 / 20; // Increment for smooth 20-second countdown
-      });
-    }, 1000);
-
-    // Set up data refresh timer (slightly earlier than visual countdown)
-    const refreshInterval = setInterval(() => {
-      updateScores();
-    }, 19800); // 19.8 seconds
-
-    return () => {
-      clearInterval(progressInterval);
-      clearInterval(refreshInterval);
-    };
-  }, [updateScores]);
-
-  // Helper function to parse period and time for sorting
+  /**
+   * Helper function to parse period and time for sorting
+   * so we can list in-progress games first, etc.
+   */
   const parseGameTime = (time) => {
-    if (time.startsWith("Start:"))
-      return { period: -1, minutes: 0, seconds: 0 };
+    // "Start: 7:30 PM"
+    if (time.startsWith("Start:")) return { period: -1, minutes: 0, seconds: 0 };
 
-    const periodMatch = time.match(/(\d+)Q/);
+    // "1Q 10:44", "OT 5:00", "Final", etc.
+    const periodMatch = time.match(/(\d+)Q/) || time.match(/(\d+)OT/);
     const timeMatch = time.match(/(\d+):(\d+)/);
 
     const period = periodMatch ? parseInt(periodMatch[1]) : 0;
@@ -340,7 +274,12 @@ const Scoreboard = () => {
     return { period, minutes, seconds };
   };
 
-  // Sort function for games
+  /**
+   * Sort function for games: 
+   * - In-progress (higher period first),
+   * - then scheduled,
+   * - then final, etc.
+   */
   const sortGames = (a, b) => {
     const timeA = parseGameTime(a.time);
     const timeB = parseGameTime(b.time);
@@ -354,26 +293,27 @@ const Scoreboard = () => {
     return totalSecondsA - totalSecondsB;
   };
 
-  // Filter and sort games
+  /**
+   * Separate games into live, upcoming, and completed categories.
+   */
   const liveGames = games
     .filter(
       (game) =>
         !game.time.startsWith("Start:") &&
-        game.time !== "4Q 0:00" &&
-        game.time !== "0Q 10:44" &&
-        game.time !== "0Q 10:39"
+        game.time !== "Final" && // or however "Final" is signaled
+        !game.time.startsWith("0Q") // your condition for non-started
     )
     .sort(sortGames);
 
   const scheduledGames = games.filter(
-    (game) =>
-      game.time.startsWith("Start:") ||
-      game.time === "0Q 10:44" ||
-      game.time === "0Q 10:39"
+    (game) => game.time.startsWith("Start:") || game.time.startsWith("0Q")
   );
 
-  const completedGames = games.filter((game) => game.time === "4Q 0:00");
+  const completedGames = games.filter((game) => game.time === "Final");
 
+  /**
+   * Click handler to show the BoxScore for a selected game
+   */
   const handleBoxScoreClick = (gameId) => {
     setSelectedGameId(gameId);
     setBoxScoreOpen(true);
@@ -381,7 +321,7 @@ const Scoreboard = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      {/* Header with Progress */}
+      {/* Header (you can still display last update time if desired) */}
       <Box
         sx={{
           display: "flex",
@@ -394,7 +334,16 @@ const Scoreboard = () => {
         }}
       >
         <Typography variant="h6">NBA Scoreboard</Typography>
-        <RefreshProgress progress={progress} lastUpdateTime={lastUpdateTime} />
+        {lastUpdateTime && (
+          <Typography variant="caption" sx={{ opacity: 0.7 }}>
+            Last update:{" "}
+            {lastUpdateTime.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })}
+          </Typography>
+        )}
       </Box>
 
       {/* Live Games Section */}
@@ -408,6 +357,7 @@ const Scoreboard = () => {
               alignItems: "center",
             }}
           >
+            {/* Little red dot to indicate live */}
             <Box
               component="span"
               sx={{
@@ -423,12 +373,7 @@ const Scoreboard = () => {
             Live Games
           </Typography>
           {liveGames.map((game, index) => (
-            <GameCard
-              key={index}
-              game={game}
-              isLive={true}
-              onBoxScoreClick={handleBoxScoreClick}
-            />
+            <GameCard key={index} game={game} onBoxScoreClick={handleBoxScoreClick} />
           ))}
         </Box>
       )}
@@ -440,12 +385,7 @@ const Scoreboard = () => {
             Upcoming Games
           </Typography>
           {scheduledGames.map((game, index) => (
-            <GameCard
-              key={index}
-              game={game}
-              isLive={false}
-              onBoxScoreClick={handleBoxScoreClick}
-            />
+            <GameCard key={index} game={game} onBoxScoreClick={handleBoxScoreClick} />
           ))}
         </Box>
       )}
@@ -474,17 +414,17 @@ const Scoreboard = () => {
 
           <Collapse in={showAllGames}>
             {completedGames.map((game, index) => (
-              <GameCard
-                key={index}
-                game={game}
-                isLive={false}
-                onBoxScoreClick={handleBoxScoreClick}
-              />
+              <GameCard key={index} game={game} onBoxScoreClick={handleBoxScoreClick} />
             ))}
           </Collapse>
         </Box>
       )}
 
+      {/**
+       * BoxScore component still uses the REST endpoint `GET /boxscore/{game_id}`
+       * No changes needed there except you might want to confirm you have a `gameId`
+       * in your WebSocket response so BoxScore can look it up correctly.
+       */}
       <BoxScore
         gameId={selectedGameId}
         open={boxScoreOpen}

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 class NBAScoreboardClient:
-    def __init__(self, uri="ws://localhost:8000/ws"):
+    def __init__(self, uri="ws://192.168.1.71:8000/ws"):
         self.uri = uri
         self.games = []
         self.last_update = None
@@ -67,7 +67,7 @@ class NBAScoreboardClient:
                 seconds = get_time_seconds(time_part)
                 
                 # Return tuple: (priority=0 for active games, negative quarter for desc order, seconds ascending)
-                return (0, -quarter, -seconds)  # Changed to -quarter to reverse quarter order
+                return (0, -quarter, seconds)  # Changed to -quarter to reverse quarter order
             elif time.startswith('Start:'):
                 # Priority=1 for upcoming games, then sort by start time
                 start_time = time.split('Start: ')[1]
