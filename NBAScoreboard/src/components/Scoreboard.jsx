@@ -143,6 +143,7 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
 
 /**
  * Single game card component.
+ * - If a game has not started (time starts with "Start:" or "0Q"), do NOT call onBoxScoreClick.
  */
 const GameCard = ({ game, onBoxScoreClick }) => {
   const theme = useTheme();
@@ -152,20 +153,28 @@ const GameCard = ({ game, onBoxScoreClick }) => {
     .map((score) => parseInt(score) || 0);
 
   const gameStatus = game.time;
+
+  // Check if game is not started yet:
   const isNotStarted =
     gameStatus.startsWith("Start:") || gameStatus.startsWith("0Q");
+
+  // Hide the score for upcoming games (isNotStarted).
   const awayDisplayScore = isNotStarted ? "" : awayScore;
   const homeDisplayScore = isNotStarted ? "" : homeScore;
+
+  // Format the game status display (handle "0Q 0:00" as pre-game, etc.)
   const displayStatus = gameStatus === "0Q 0:00" ? "Pre-Game" : gameStatus;
 
   return (
     <Card
+      // Only call onBoxScoreClick if the game has started (i.e., isNotStarted === false). Prevents call for boxscore data if game has not started.
       onClick={() => {
         if (!isNotStarted) {
           onBoxScoreClick(game.gameId);
         }
       }}
       sx={{
+        // Change the cursor to indicate non-clickable if game not started
         cursor: isNotStarted ? "default" : "pointer",
         mb: isMobile ? 1 : 2,
         backgroundColor: "rgb(45, 45, 45)",
@@ -208,6 +217,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
               textAlign: "center",
             }}
           >
+            {/* Game Start Time Display e.g. 7:30 PM */}
             <Typography
               variant="body2"
               sx={{
@@ -218,7 +228,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
                 fontSize: isMobile ? "0.75rem" : "0.875rem",
               }}
             >
-              {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}
+              {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "} 
             </Typography>
           </Box>
 
@@ -244,8 +254,13 @@ const Scoreboard = () => {
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
+
+  // Track the last time we received an update with new information (for display only)
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
+  /**
+   * On mount, establish a WebSocket connection to get live updates.
+   */
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:8000/ws");
 
@@ -271,15 +286,22 @@ const Scoreboard = () => {
       console.log("Disconnected from NBA Stats WebSocket");
     };
 
+    // Cleanup: close the WS on unmount
     return () => {
       ws.close();
     };
   }, []);
 
+  /**
+   * Helper function to parse period and time for sorting
+   * so we can list in-progress games first, etc.
+   */
   const parseGameTime = (time) => {
+    // "Start: 7:30 PM"
     if (time.startsWith("Start:"))
       return { period: -1, minutes: 0, seconds: 0 };
 
+    // "1Q 10:44", "OT 5:00", "Final", etc.
     const periodMatch = time.match(/(\d+)Q/) || time.match(/(\d+)OT/);
     const timeMatch = time.match(/(\d+):(\d+)/);
 
@@ -290,17 +312,28 @@ const Scoreboard = () => {
     return { period, minutes, seconds };
   };
 
+  /**
+   * Sort function for games: 
+   * - In-progress (higher period first),
+   * - then scheduled,
+   * - then final, etc.
+   */
   const sortGames = (a, b) => {
     const timeA = parseGameTime(a.time);
     const timeB = parseGameTime(b.time);
 
+    // First sort by period (descending)
     if (timeB.period !== timeA.period) return timeB.period - timeA.period;
 
+    // Then sort by time (ascending)
     const totalSecondsA = timeA.minutes * 60 + timeA.seconds;
     const totalSecondsB = timeB.minutes * 60 + timeB.seconds;
     return totalSecondsA - totalSecondsB;
   };
 
+  /**
+   * Separate games into live, upcoming, and completed categories.
+   */
   const liveGames = games
     .filter(
       (game) =>
@@ -316,6 +349,11 @@ const Scoreboard = () => {
 
   const completedGames = games.filter((game) => game.time === "Final");
 
+  /**
+   * Click handler to show the BoxScore for a selected game.
+   * (This is only called if the game has started, because
+   *  we prevent the click in <GameCard> for not-started games.)
+   */
   const handleBoxScoreClick = (gameId) => {
     setSelectedGameId(gameId);
     setBoxScoreOpen(true);
@@ -329,6 +367,7 @@ const Scoreboard = () => {
         px: isMobile ? 1 : 2,
       }}
     >
+      {/* Header (you can still display last update time if desired) */}
       <Box
         sx={{
           display: "flex",
@@ -376,6 +415,7 @@ const Scoreboard = () => {
               fontSize: isMobile ? "1rem" : "1.25rem",
             }}
           >
+            {/* Little red dot to indicate live */}
             <Box
               component="span"
               sx={{
@@ -460,7 +500,11 @@ const Scoreboard = () => {
         </Box>
       )}
 
-      {/* BoxScore Modal */}
+      {/** Boxscore Modal
+       * BoxScore component still uses the REST endpoint `GET /boxscore/{game_id}`
+       * We won't call it for games that have not started, because <GameCard>
+       * prevents the click if `game.time` starts with "Start:" or "0Q".
+       */}
       <BoxScore
         gameId={selectedGameId}
         open={boxScoreOpen}
