@@ -1,6 +1,7 @@
 // ScoreBoard.jsx
 import React, { useState, useEffect } from "react";
 import BoxScore from "./BoxScore";
+import ConnectionIndicator from "./ConnectionIndicator";
 import {
   Box,
   Card,
@@ -311,6 +312,9 @@ const Scoreboard = () => {
   // Track the last time we received an update with new information (for display only)
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
+  // Connection Indicator
+  const [isConnected, setIsConnected] = useState(false);
+
   /**
    * On mount, establish a WebSocket connection to get live updates.
    */
@@ -319,6 +323,7 @@ const Scoreboard = () => {
 
     ws.onopen = () => {
       console.log("Connected to NBA Stats WebSocket");
+      setIsConnected(true);
     };
 
     ws.onmessage = (event) => {
@@ -333,10 +338,12 @@ const Scoreboard = () => {
 
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
+      setIsConnected(false);
     };
 
     ws.onclose = () => {
       console.log("Disconnected from NBA Stats WebSocket");
+      setIsConnected(false);
     };
 
     // Cleanup: close the WS on unmount
@@ -420,7 +427,7 @@ const Scoreboard = () => {
         px: isMobile ? 1 : 2,
       }}
     >
-      {/* Header (you can still display last update time if desired) */}
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -438,22 +445,25 @@ const Scoreboard = () => {
         >
           NBA Scoreboard
         </Typography>
-        {lastUpdateTime && (
-          <Typography
-            variant="caption"
-            sx={{
-              opacity: 0.7,
-              fontSize: isMobile ? "0.7rem" : "0.75rem",
-            }}
-          >
-            Last update:{" "}
-            {lastUpdateTime.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
-          </Typography>
-        )}
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <ConnectionIndicator connected={isConnected} />
+          {lastUpdateTime && (
+            <Typography
+              variant="caption"
+              sx={{
+                opacity: 0.7,
+                fontSize: isMobile ? "0.7rem" : "0.75rem",
+              }}
+            >
+              Last update:{" "}
+              {lastUpdateTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       {/* Live Games Section */}

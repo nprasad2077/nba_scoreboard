@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # ========== NEW GLOBAL VARIABLE FOR TRACKING OLD SCOREBOARD ==========
 previous_scoreboard_data: List[Dict] = []
 
+
 class GameStateManager:
     def __init__(self):
         self.game_states = {}
@@ -61,8 +62,10 @@ class GameStateManager:
             {"period": 0, "clock": "", "status": 1, "minutes": 12, "seconds": 0},
         )
 
+
 # Create a global instance
 game_state_manager = GameStateManager()
+
 
 def format_time(game) -> str:
     """Format game time based on game status and period"""
@@ -102,6 +105,7 @@ def format_time(game) -> str:
 
     return "0Q 0:00"
 
+
 def format_game_data(games: List[Dict]) -> List[Dict]:
     """Format games data into required structure"""
     formatted_games = []
@@ -127,7 +131,7 @@ def format_game_data(games: List[Dict]) -> List[Dict]:
             "home_team": f"{home_team.get('teamCity', '')} {home_team.get('teamName', '')}".strip(),
             "home_tricode": home_team.get("teamTricode", ""),
             "time": format_time(game),
-            "gameId": game_id  # Add the game ID to the response
+            "gameId": game_id,  # Add the game ID to the response
         }
         formatted_games.append(formatted_game)
 
@@ -141,6 +145,7 @@ def format_game_data(games: List[Dict]) -> List[Dict]:
         return (1, time)
 
     return sorted(formatted_games, key=sort_key)
+
 
 # ========== NEW COMPARISON FUNCTION ==========
 def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
@@ -160,12 +165,12 @@ def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
 
         # Compare only the fields you actually render
         if (
-            old_game["time"] != new_game["time"] or
-            old_game["score"] != new_game["score"] or
-            old_game["away_team"] != new_game["away_team"] or
-            old_game["home_team"] != new_game["home_team"] or
-            old_game["away_tricode"] != new_game["away_tricode"] or
-            old_game["home_tricode"] != new_game["home_tricode"]
+            old_game["time"] != new_game["time"]
+            or old_game["score"] != new_game["score"]
+            or old_game["away_team"] != new_game["away_team"]
+            or old_game["home_team"] != new_game["home_team"]
+            or old_game["away_tricode"] != new_game["away_tricode"]
+            or old_game["home_tricode"] != new_game["home_tricode"]
         ):
             return True
 
@@ -182,6 +187,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 class ConnectionManager:
     def __init__(self):
@@ -211,7 +217,9 @@ class ConnectionManager:
 
             self.active_connections -= dead_connections
 
+
 manager = ConnectionManager()
+
 
 # ========== MODIFIED BACKGROUND TASK WITH COMPARISON ==========
 async def fetch_and_broadcast_updates():
@@ -227,7 +235,9 @@ async def fetch_and_broadcast_updates():
                 formatted_data = format_game_data(games_data)
 
                 # Only broadcast if there's a change
-                if not previous_scoreboard_data or scoreboard_changed(previous_scoreboard_data, formatted_data):
+                if not previous_scoreboard_data or scoreboard_changed(
+                    previous_scoreboard_data, formatted_data
+                ):
                     await manager.broadcast(formatted_data)
                     previous_scoreboard_data = formatted_data
                     logger.info(" Broadcast")
@@ -239,6 +249,7 @@ async def fetch_and_broadcast_updates():
         except Exception as e:
             logger.error(f"Error in update loop: {e}")
             await asyncio.sleep(5)
+
 
 def get_box_score(game_id: str) -> GameBoxScore:
     """
@@ -300,6 +311,7 @@ def get_box_score(game_id: str) -> GameBoxScore:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -319,15 +331,19 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket error: {e}")
         await manager.disconnect(websocket)
 
+
 @app.get("/boxscore/{game_id}", response_model=GameBoxScore)
 async def read_box_score(game_id: str):
     """Get box score for a specific game."""
     return get_box_score(game_id)
 
+
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(fetch_and_broadcast_updates())
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
