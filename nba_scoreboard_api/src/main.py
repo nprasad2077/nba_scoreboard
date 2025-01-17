@@ -1,20 +1,178 @@
-from fastapi import FastAPI, HTTPException, Query
+import asyncio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Optional, Union
-import pandas as pd
-from nba_api.live.nba.endpoints import scoreboard, boxscore
-import re
-from datetime import datetime, timezone
-from dateutil import parser
+from typing import List, Dict, Set
+from datetime import datetime
 import pytz
-import uvicorn
-from pydantic import BaseModel, Field
+from nba_api.live.nba.endpoints import scoreboard, boxscore
+import json
+import logging
+from dateutil import parser
+import re
 
-app = FastAPI(
-    title="NBA Live Scores API",
-    description="API that provides live NBA game scores and statistics",
-    version="1.0.0"
-)
+from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ========== NEW GLOBAL VARIABLE FOR TRACKING OLD SCOREBOARD ==========
+previous_scoreboard_data: List[Dict] = []
+
+class GameStateManager:
+    def __init__(self):
+        self.game_states = {}
+
+    def update_game_state(
+        self, game_id: str, period: int, clock: str, status: int
+    ) -> dict:
+        current_state = self.game_states.get(
+            game_id,
+            {"period": 0, "clock": "", "status": 1, "minutes": 12, "seconds": 0},
+        )
+
+        if status == 2:  # Game in progress
+            if period > 0:  # Valid period
+                if period >= current_state["period"]:
+                    current_state["period"] = period
+
+                if clock and self.is_valid_clock(clock):
+                    current_state["clock"] = clock
+                    # Parse clock into minutes and seconds
+                    match = re.match(r"PT(\d+)M(\d+\.\d+)S", clock)
+                    if match:
+                        current_state["minutes"] = int(match.group(1))
+                        current_state["seconds"] = int(float(match.group(2)))
+
+        if status > current_state["status"]:
+            current_state["status"] = status
+
+        self.game_states[game_id] = current_state
+        return current_state
+
+    def is_valid_clock(self, clock: str) -> bool:
+        if not clock:
+            return False
+        return bool(re.match(r"PT\d+M\d+\.\d+S", clock))
+
+    def get_game_state(self, game_id: str) -> dict:
+        return self.game_states.get(
+            game_id,
+            {"period": 0, "clock": "", "status": 1, "minutes": 12, "seconds": 0},
+        )
+
+# Create a global instance
+game_state_manager = GameStateManager()
+
+def format_time(game) -> str:
+    """Format game time based on game status and period"""
+    game_id = game.get("gameId")
+    status = game.get("gameStatus", 1)
+
+    if status == 1:
+        # Game hasn't started - format start time
+        game_time_utc = game.get("gameTimeUTC")
+        if game_time_utc:
+            try:
+                utc_time = parser.parse(game_time_utc)
+                et_time = utc_time.astimezone(pytz.timezone("America/New_York"))
+                return f"Start: {et_time.strftime('%I:%M %p')}"
+            except Exception:
+                return "Start: TBD"
+    elif status == 2:
+        # Get current state and update with new data
+        state = game_state_manager.update_game_state(
+            game_id, game.get("period", 0), game.get("gameClock", ""), status
+        )
+
+        period = state["period"]
+        minutes = state["minutes"]
+        seconds = state["seconds"]
+
+        # Handle period-specific cases
+        if period > 4:
+            period_display = "OT" if period == 5 else f"{period - 4}OT"
+        else:
+            period_display = f"{period}Q"
+
+        return f"{period_display} {minutes}:{seconds:02d}"
+    elif status == 3:
+        # Game finished
+        return "Final"
+
+    return "0Q 0:00"
+
+def format_game_data(games: List[Dict]) -> List[Dict]:
+    """Format games data into required structure"""
+    formatted_games = []
+
+    for game in games:
+        home_team = game.get("homeTeam", {})
+        away_team = game.get("awayTeam", {})
+        status = game.get("gameStatus", 1)
+        game_id = game.get("gameId", "")  # Get the game ID
+
+        # Get scores based on game status
+        if status in [2, 3]:  # Game in progress or finished
+            home_score = str(home_team.get("score", 0))
+            away_score = str(away_team.get("score", 0))
+        else:
+            home_score = "0"
+            away_score = "0"
+
+        formatted_game = {
+            "away_team": f"{away_team.get('teamCity', '')} {away_team.get('teamName', '')}".strip(),
+            "away_tricode": away_team.get("teamTricode", ""),
+            "score": f"{away_score} - {home_score}",
+            "home_team": f"{home_team.get('teamCity', '')} {home_team.get('teamName', '')}".strip(),
+            "home_tricode": home_team.get("teamTricode", ""),
+            "time": format_time(game),
+            "gameId": game_id  # Add the game ID to the response
+        }
+        formatted_games.append(formatted_game)
+
+    # Sort games: In Progress -> Not Started -> Final
+    def sort_key(g):
+        time = g["time"]
+        if time == "Final":
+            return (2, time)
+        if "Q" in time or "OT" in time:
+            return (0, time)
+        return (1, time)
+
+    return sorted(formatted_games, key=sort_key)
+
+# ========== NEW COMPARISON FUNCTION ==========
+def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
+    """Return True if there's a difference in the fields we care about."""
+    if len(old_data) != len(new_data):
+        return True
+
+    # Create a quick lookup by gameId from the old_data
+    old_map = {g["gameId"]: g for g in old_data}
+
+    for new_game in new_data:
+        new_id = new_game["gameId"]
+        old_game = old_map.get(new_id)
+        # If it's a new gameId, definitely changed
+        if not old_game:
+            return True
+
+        # Compare only the fields you actually render
+        if (
+            old_game["time"] != new_game["time"] or
+            old_game["score"] != new_game["score"] or
+            old_game["away_team"] != new_game["away_team"] or
+            old_game["home_team"] != new_game["home_team"] or
+            old_game["away_tricode"] != new_game["away_tricode"] or
+            old_game["home_tricode"] != new_game["home_tricode"]
+        ):
+            return True
+
+    return False
+
+
+app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
@@ -25,248 +183,151 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class PlayerStatistics(BaseModel):
-    assists: int = Field(default=0)
-    blocks: int = Field(default=0)
-    blocksReceived: int = Field(default=0)
-    fieldGoalsAttempted: int = Field(default=0)
-    fieldGoalsMade: int = Field(default=0)
-    fieldGoalsPercentage: float = Field(default=0.0)
-    foulsOffensive: int = Field(default=0)
-    foulsDrawn: int = Field(default=0)
-    foulsPersonal: int = Field(default=0)
-    foulsTechnical: int = Field(default=0)
-    freeThrowsAttempted: int = Field(default=0)
-    freeThrowsMade: int = Field(default=0)
-    freeThrowsPercentage: float = Field(default=0.0)
-    minutes: str = Field(default="0")
-    plusMinusPoints: int = Field(default=0)
-    points: int = Field(default=0)
-    reboundsDefensive: int = Field(default=0)
-    reboundsOffensive: int = Field(default=0)
-    reboundsTotal: int = Field(default=0)
-    steals: int = Field(default=0)
-    threePointersAttempted: int = Field(default=0)
-    threePointersMade: int = Field(default=0)
-    threePointersPercentage: float = Field(default=0.0)
-    turnovers: int = Field(default=0)
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+        self._lock = asyncio.Lock()
 
-class PlayerData(BaseModel):
-    name: str
-    position: Optional[str] = ""
-    starter: bool = False
-    oncourt: bool = False
-    jerseyNum: str = ""
-    status: str = ""
-    statistics: PlayerStatistics
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        async with self._lock:
+            self.active_connections.add(websocket)
 
-class TeamBoxScore(BaseModel):
-    teamName: str
-    teamCity: str
-    teamTricode: str
-    players: List[PlayerData]
+    async def disconnect(self, websocket: WebSocket):
+        async with self._lock:
+            self.active_connections.remove(websocket)
 
-class GameBoxScore(BaseModel):
-    gameId: str
-    home_team: TeamBoxScore
-    away_team: TeamBoxScore
+    async def broadcast(self, data: List[Dict]):
+        async with self._lock:
+            dead_connections = set()
+            for connection in self.active_connections:
+                try:
+                    await connection.send_json(data)
+                except WebSocketDisconnect:
+                    dead_connections.add(connection)
+                except Exception as e:
+                    logger.error(f"Error broadcasting to client: {e}")
+                    dead_connections.add(connection)
 
-class GameScore(BaseModel):
-    away_team: str
-    away_tricode: str
-    score: str
-    home_team: str
-    home_tricode: str
-    time: str
-    gameId: str
+            self.active_connections -= dead_connections
 
-def format_time(quarter: int, time: str) -> str:
-    if time is None:
-        return "Not Started"
-    
-    match = re.match(r"PT(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?", time)
-    if match:
-        minutes = match.group(1) or "0"
-        seconds = match.group(2) or "0"
-        formatted_time = f"{int(minutes)}:{int(seconds):02d}"
-        return f"{quarter}Q {formatted_time}"
-    return "Invalid Time"
+manager = ConnectionManager()
 
-def parse_game_time(time_str: str) -> int:
-    if time_str == "Not Started":
-        return 999999  # Place "Not Started" games at the end
-        
-    try:
-        quarter = int(time_str.split('Q')[0])
-        time_parts = time_str.split(' ')[1].split(':')
-        minutes = int(time_parts[0])
-        seconds = int(time_parts[1])
-        
-        if minutes == 0 and seconds == 0:
-            return -1
-        
-        return (-quarter * 10000) + (minutes * 60 + seconds)
-    except:
-        return 999999  # Handle any parsing errors by placing at the end
+# ========== MODIFIED BACKGROUND TASK WITH COMPARISON ==========
+async def fetch_and_broadcast_updates():
+    """Background task to fetch scoreboard data and only broadcast on changes."""
+    global previous_scoreboard_data
 
-def format_game_start_time(game_time_utc: str, tz_name: Optional[str] = None) -> str:
-    try:
-        game_time = parser.parse(game_time_utc).replace(tzinfo=timezone.utc)
-        
-        if tz_name:
-            try:
-                local_tz = pytz.timezone(tz_name)
-                game_time = game_time.astimezone(local_tz)
-            except pytz.exceptions.UnknownTimeZoneError:
-                game_time = game_time.astimezone()
-        else:
-            game_time = game_time.astimezone()
-            
-        return game_time.strftime("%I:%M %p")
-    
-    except Exception as e:
-        return "Time Unknown"
+    while True:
+        try:
+            board = scoreboard.ScoreBoard()
+            games_data = board.games.get_dict()
 
-def get_live_scores(timezone: Optional[str] = None) -> List[Dict]:
-    try:
-        board = scoreboard.ScoreBoard()
-        games = board.games.get_dict()
-        game_data = []
-        
-        for game in games:
-            gameId = game['gameId']
-            
-            try:
-                box = boxscore.BoxScore(gameId)
-                game_details = box.game.get_dict()
-                
-                current_time = game_details['gameClock']
-                current_quarter = game_details['period']
-                
-                home_stats = box.home_team_stats.get_dict()
-                away_stats = box.away_team_stats.get_dict()
-                
-                formatted_time = format_time(current_quarter, current_time)
-                
-                game_data.append({
-                    "away_team": f"{away_stats['teamCity']} {away_stats['teamName']}",
-                    "away_tricode": away_stats['teamTricode'],
-                    "score": f"{away_stats['statistics']['points']} - {home_stats['statistics']['points']}",
-                    "home_team": f"{home_stats['teamCity']} {home_stats['teamName']}",
-                    "home_tricode": home_stats['teamTricode'],
-                    "time": formatted_time,
-                    "gameId": gameId
-                })
-                
-            except Exception as game_error:
-                start_time = format_game_start_time(game['gameTimeUTC'], timezone)
-                
-                game_data.append({
-                    "away_team": f"{game['awayTeam']['teamCity']} {game['awayTeam']['teamName']}",
-                    "away_tricode": game['awayTeam']['teamTricode'],
-                    "score": "0 - 0",
-                    "home_team": f"{game['homeTeam']['teamCity']} {game['homeTeam']['teamName']}",
-                    "home_tricode": game['homeTeam']['teamTricode'],
-                    "time": f"Start: {start_time}",
-                    "gameId": gameId
-                })
-        
-        game_data.sort(key=lambda x: parse_game_time(x["time"]))
-        return game_data
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            if games_data:
+                formatted_data = format_game_data(games_data)
+
+                # Only broadcast if there's a change
+                if not previous_scoreboard_data or scoreboard_changed(previous_scoreboard_data, formatted_data):
+                    await manager.broadcast(formatted_data)
+                    previous_scoreboard_data = formatted_data
+                    logger.info(" Broadcast")
+
+            # Sleep 1 second between each scoreboard fetch
+            await asyncio.sleep(0.5)
+            logger.info(" Ping NBA")
+
+        except Exception as e:
+            logger.error(f"Error in update loop: {e}")
+            await asyncio.sleep(5)
 
 def get_box_score(game_id: str) -> GameBoxScore:
+    """
+    Fetch detailed box score data for a specific game_id using nba_api.
+    """
     try:
-        box = boxscore.BoxScore('0022400551')
-        
+        b = boxscore.BoxScore(game_id)
+
         # Process home team players
         home_players = []
-        for player in box.home_team_player_stats.get_dict():
-            home_players.append(PlayerData(
-                name=player.get('name', ''),
-                position=player.get('position', ''),
-                starter=player.get('starter', False),
-                oncourt=player.get('oncourt', False),
-                jerseyNum=player.get('jerseyNum', ''),
-                status=player.get('status', ''),
-                statistics=PlayerStatistics(**player.get('statistics', {}))
-            ))
-        
+        for player in b.home_team_player_stats.get_dict():
+            home_players.append(
+                PlayerData(
+                    name=player.get("name", ""),
+                    position=player.get("position", ""),
+                    starter=player.get("starter", False),
+                    oncourt=player.get("oncourt", False),
+                    jerseyNum=player.get("jerseyNum", ""),
+                    status=player.get("status", ""),
+                    statistics=PlayerStatistics(**player.get("statistics", {})),
+                )
+            )
+
         # Process away team players
         away_players = []
-        for player in box.away_team_player_stats.get_dict():
-            away_players.append(PlayerData(
-                name=player.get('name', ''),
-                position=player.get('position', ''),
-                starter=player.get('starter', False),
-                oncourt=player.get('oncourt', False),
-                jerseyNum=player.get('jerseyNum', ''),
-                status=player.get('status', ''),
-                statistics=PlayerStatistics(**player.get('statistics', {}))
-            ))
-        
-        home_team = box.home_team_stats.get_dict()
-        away_team = box.away_team_stats.get_dict()
-        
+        for player in b.away_team_player_stats.get_dict():
+            away_players.append(
+                PlayerData(
+                    name=player.get("name", ""),
+                    position=player.get("position", ""),
+                    starter=player.get("starter", False),
+                    oncourt=player.get("oncourt", False),
+                    jerseyNum=player.get("jerseyNum", ""),
+                    status=player.get("status", ""),
+                    statistics=PlayerStatistics(**player.get("statistics", {})),
+                )
+            )
+
+        # Get team-level stats/dict
+        home_team = b.home_team_stats.get_dict()
+        away_team = b.away_team_stats.get_dict()
+
         return GameBoxScore(
             gameId=game_id,
             home_team=TeamBoxScore(
-                teamName=home_team['teamName'],
-                teamCity=home_team['teamCity'],
-                teamTricode=home_team['teamTricode'],
-                players=home_players
+                teamName=home_team["teamName"],
+                teamCity=home_team["teamCity"],
+                teamTricode=home_team["teamTricode"],
+                players=home_players,
             ),
             away_team=TeamBoxScore(
-                teamName=away_team['teamName'],
-                teamCity=away_team['teamCity'],
-                teamTricode=away_team['teamTricode'],
-                players=away_players
-            )
+                teamName=away_team["teamName"],
+                teamCity=away_team["teamCity"],
+                teamTricode=away_team["teamTricode"],
+                players=away_players,
+            ),
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/", response_model=List[GameScore])
-async def read_scores(timezone: Optional[str] = Query(None, description="Timezone (e.g., 'America/Chicago')")):
-    """
-    Get current NBA live scores
-    
-    Parameters:
-        timezone: Optional timezone name (e.g., 'America/Chicago', 'America/New_York')
-    
-    Returns:
-        List[GameScore]: A list of all current NBA games with scores
-    """
-    return get_live_scores(timezone)
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        # Send initial data
+        board = scoreboard.ScoreBoard()
+        games_data = board.games.get_dict()
+        if games_data:
+            formatted_data = format_game_data(games_data)
+            await websocket.send_json(formatted_data)
+
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await manager.disconnect(websocket)
 
 @app.get("/boxscore/{game_id}", response_model=GameBoxScore)
 async def read_box_score(game_id: str):
-    """
-    Get box score for a specific game
-    
-    Parameters:
-        game_id: The ID of the game to get box score for
-    
-    Returns:
-        GameBoxScore: Detailed box score statistics for the specified game
-    """
+    """Get box score for a specific game."""
     return get_box_score(game_id)
 
-@app.get("/health")
-async def health_check():
-    """
-    Health check endpoint
-    
-    Returns:
-        dict: Status of the API
-    """
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat()
-    }
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(fetch_and_broadcast_updates())
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

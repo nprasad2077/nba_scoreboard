@@ -1,6 +1,7 @@
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Scoreboard from './components/Scoreboard';
+import NBAScores from './components/NBAScores';
 
 const darkTheme = createTheme({
   palette: {

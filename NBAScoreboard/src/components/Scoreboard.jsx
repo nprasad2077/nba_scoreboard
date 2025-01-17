@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+// ScoreBoard.jsx
+import React, { useState, useEffect } from "react";
 import BoxScore from "./BoxScore";
 import {
   Box,
@@ -8,9 +9,9 @@ import {
   Container,
   Stack,
   Collapse,
-  CircularProgress,
-  useTheme,
   IconButton,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 
@@ -46,7 +47,6 @@ import TOR from "../assets/nba_logos/TOR.svg";
 import UTA from "../assets/nba_logos/UTA.svg";
 import WAS from "../assets/nba_logos/WAS.svg";
 
-// Logo mapping object
 const teamLogos = {
   ATL,
   BOS,
@@ -80,30 +80,63 @@ const teamLogos = {
   WAS,
 };
 
-const fetchScores = async () => {
-  try {
-    // Try to get the browser's timezone
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const url = timezone
-      ? `http://localhost:8000/?timezone=${encodeURIComponent(timezone)}`
-      : "http://localhost:8000/";
-
-    const response = await fetch(url);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    // If there's any error with timezone detection or encoding, fallback to default URL
-    console.warn(
-      "Error with timezone detection, falling back to default:",
-      error
-    );
-    const response = await fetch("http://localhost:8000/");
-    const data = await response.json();
-    return data;
+/**
+ * Converts Eastern Standard Time (EST) to local time
+ * @param {string} timeStr - Time string in format "Start: HH:MM PM"
+ * @returns {string} - Formatted time string in local timezone
+ */
+const convertToLocalTime = (timeStr) => {
+  // If it's not a start time (e.g., "1Q 10:44" or "Final"), return as is
+  if (!timeStr.startsWith("Start:")) {
+    return timeStr;
   }
+
+  // Extract the time part
+  const [_, timeComponent] = timeStr.split("Start: ");
+  const [time, period] = timeComponent.trim().split(" ");
+  const [hours, minutes] = time.split(":").map((num) => parseInt(num));
+
+  // Convert to 24-hour format
+  let hour24 = hours;
+  if (period === "PM" && hours !== 12) {
+    hour24 += 12;
+  } else if (period === "AM" && hours === 12) {
+    hour24 = 0;
+  }
+
+  // Get today's date
+  const today = new Date();
+
+  // Create a date object with the game time in EST
+  // Adding 5 hours to convert EST to UTC (EST is UTC-5)
+  const etDate = new Date(
+    Date.UTC(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      hour24 + 5, // EST to UTC offset
+      minutes
+    )
+  );
+
+  // Convert to local time
+  const localTime = new Date(etDate);
+
+  // Format the time in local timezone
+  const localTimeStr = localTime.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  return `Start: ${localTimeStr}`;
 };
 
+/**
+ * Renders away/home team info (logo + name + optional score).
+ */
 const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
+  const isMobile = useMediaQuery("(max-width:600px)");
   const logoSrc = teamLogos[tricode];
 
   return (
@@ -111,10 +144,11 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 2,
+        gap: isMobile ? 1 : 2,
         flexDirection: isHomeTeam ? "row-reverse" : "row",
         justifyContent: isHomeTeam ? "flex-start" : "flex-start",
-        minWidth: "200px",
+        minWidth: isMobile ? "auto" : "200px",
+        flex: isMobile ? 1 : "none",
       }}
     >
       <Box
@@ -122,18 +156,32 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         src={logoSrc}
         alt={`${teamName} logo`}
         sx={{
-          width: 40,
-          height: 40,
+          width: isMobile ? 32 : 40,
+          height: isMobile ? 32 : 40,
           objectFit: "contain",
         }}
       />
-      <Box sx={{ textAlign: isHomeTeam ? "right" : "left" }}>
-        <Typography variant="body1" fontWeight="bold">
-          {teamName}
+      <Box
+        sx={{
+          textAlign: isHomeTeam ? "right" : "left",
+          overflow: "hidden",
+        }}
+      >
+        <Typography
+          variant="body1"
+          fontWeight="bold"
+          sx={{
+            fontSize: isMobile ? "0.875rem" : "1rem",
+            whiteSpace: "nowrap",
+            // Remove maxWidth and overflow handling since we're using conditional rendering
+            color: "#ffffff",
+          }}
+        >
+          {isMobile ? tricode : teamName}
         </Typography>
         {score !== "" && (
           <Typography
-            variant="h5"
+            variant={isMobile ? "h6" : "h5"}
             color={isWinner ? "primary" : "text.primary"}
             sx={{ color: isWinner ? "#64b5f6" : "#ffffff" }}
           >
@@ -145,34 +193,58 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
   );
 };
 
-const GameCard = ({ game, isLive, onBoxScoreClick }) => {
+/**
+ * Single game card component.
+ * - If a game has not started (time starts with "Start:" or "0Q"), do NOT call onBoxScoreClick.
+ */
+const GameCard = ({ game, onBoxScoreClick }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery("(max-width:600px)");
   const [awayScore, homeScore] = game.score
     .split(" - ")
     .map((score) => parseInt(score) || 0);
-  const gameStatus = game.time;
-  const isScheduled = gameStatus.startsWith("Start:");
 
-  // Format the game status display
-  const displayStatus = gameStatus === "0Q 0:00" ? "Pre-Game 0:00" : gameStatus;
+  // Convert the game time to local timezone
+  const gameStatus = convertToLocalTime(game.time);
+
+  // Check if game is not started yet:
+  const isNotStarted =
+    gameStatus.startsWith("Start:") || gameStatus.startsWith("0Q");
+
+  // Hide the score for upcoming games (isNotStarted).
+  const awayDisplayScore = isNotStarted ? "" : awayScore;
+  const homeDisplayScore = isNotStarted ? "" : homeScore;
+
+  // Format the game status display (handle "0Q 0:00" as pre-game, etc.)
+  const displayStatus = gameStatus === "0Q 0:00" ? "Pre-Game" : gameStatus;
 
   return (
     <Card
-      onClick={() => onBoxScoreClick(game.gameId)}
+      // Only call onBoxScoreClick if the game has started (i.e., isNotStarted === false). Prevents call for boxscore data if game has not started.
+      onClick={() => {
+        if (!isNotStarted) {
+          onBoxScoreClick(game.gameId);
+        }
+      }}
       sx={{
-        cursor: "pointer",
-        mb: 2,
+        // Change the cursor to indicate non-clickable if game not started
+        cursor: isNotStarted ? "default" : "pointer",
+        mb: isMobile ? 1 : 2,
         backgroundColor: "rgb(45, 45, 45)",
         boxShadow: "none",
         transition: "transform 0.2s",
         "&:hover": {
-          transform: "scale(1.01)",
+          transform: isNotStarted ? "none" : "scale(1.01)",
         },
-        height: "80px",
+        height: isMobile ? "70px" : "80px",
       }}
     >
       <CardContent
-        sx={{ position: "relative", p: "16px !important", height: "100%" }}
+        sx={{
+          position: "relative",
+          p: isMobile ? "12px !important" : "16px !important",
+          height: "100%",
+        }}
       >
         <Stack
           direction="row"
@@ -183,8 +255,8 @@ const GameCard = ({ game, isLive, onBoxScoreClick }) => {
           <TeamInfo
             teamName={game.away_team}
             tricode={game.away_tricode}
-            score={isScheduled ? "" : awayScore}
-            isWinner={!isScheduled && awayScore > homeScore}
+            score={awayDisplayScore}
+            isWinner={!isNotStarted && awayScore > homeScore}
             isHomeTeam={false}
           />
 
@@ -194,10 +266,11 @@ const GameCard = ({ game, isLive, onBoxScoreClick }) => {
               left: "50%",
               top: "50%",
               transform: "translate(-50%, -50%)",
-              minWidth: "100px",
+              minWidth: isMobile ? "60px" : "100px",
               textAlign: "center",
             }}
           >
+            {/* Game Start Time Display e.g. 7:30 PM */}
             <Typography
               variant="body2"
               sx={{
@@ -205,18 +278,18 @@ const GameCard = ({ game, isLive, onBoxScoreClick }) => {
                 opacity: 0.5,
                 letterSpacing: "0.5px",
                 fontWeight: 400,
-                fontSize: "0.875rem",
+                fontSize: isMobile ? "0.75rem" : "0.875rem",
               }}
             >
-              {isScheduled ? gameStatus.replace("Start: ", "") : displayStatus}
+              {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "}
             </Typography>
           </Box>
 
           <TeamInfo
             teamName={game.home_team}
             tricode={game.home_tricode}
-            score={isScheduled ? "" : homeScore}
-            isWinner={!isScheduled && homeScore > awayScore}
+            score={homeDisplayScore}
+            isWinner={!isNotStarted && homeScore > awayScore}
             isHomeTeam={true}
           />
         </Stack>
@@ -225,112 +298,64 @@ const GameCard = ({ game, isLive, onBoxScoreClick }) => {
   );
 };
 
-const RefreshProgress = ({ progress, lastUpdateTime }) => {
-  const formatLastUpdate = (date) => {
-    if (!date) return "";
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        backgroundColor: "rgba(0, 0, 0, 0.04)",
-        borderRadius: 1,
-        padding: "4px 12px",
-      }}
-    >
-      <Typography variant="caption" sx={{ opacity: 0.7 }}>
-        Last update: {formatLastUpdate(lastUpdateTime)}
-      </Typography>
-      <Box sx={{ position: "relative", display: "inline-flex" }}>
-        <CircularProgress
-          variant="determinate"
-          value={progress}
-          size={28}
-          thickness={4}
-          sx={{ color: "primary.main" }}
-        />
-        <Box
-          sx={{
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: 0,
-            position: "absolute",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              fontSize: "0.7rem",
-              fontWeight: "bold",
-              color: "primary.main",
-            }}
-          >
-            {Math.round((progress / 100) * 20)}s
-          </Typography>
-        </Box>
-      </Box>
-    </Box>
-  );
-};
-
+/**
+ * Main scoreboard component
+ */
 const Scoreboard = () => {
+  const isMobile = useMediaQuery("(max-width:600px)");
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
-  const [progress, setProgress] = useState(0);
+
+  // Track the last time we received an update with new information (for display only)
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
-  const updateScores = useCallback(async () => {
-    try {
-      const data = await fetchScores();
-      setGames(data);
-      setLastUpdateTime(new Date());
-      setProgress(0);
-    } catch (error) {
-      console.error("Error fetching scores:", error);
-    }
+  /**
+   * On mount, establish a WebSocket connection to get live updates.
+   */
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:8000/ws");
+
+    ws.onopen = () => {
+      console.log("Connected to NBA Stats WebSocket");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const gamesData = JSON.parse(event.data);
+        setGames(gamesData);
+        setLastUpdateTime(new Date());
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    ws.onclose = () => {
+      console.log("Disconnected from NBA Stats WebSocket");
+    };
+
+    // Cleanup: close the WS on unmount
+    return () => {
+      ws.close();
+    };
   }, []);
 
-  useEffect(() => {
-    // Initial load
-    updateScores();
-
-    // Set up progress timer
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          return 0;
-        }
-        return prev + 100 / 20; // Increment for smooth 20-second countdown
-      });
-    }, 1000);
-
-    // Set up data refresh timer (slightly earlier than visual countdown)
-    const refreshInterval = setInterval(() => {
-      updateScores();
-    }, 19800); // 19.8 seconds
-
-    return () => {
-      clearInterval(progressInterval);
-      clearInterval(refreshInterval);
-    };
-  }, [updateScores]);
-
-  // Helper function to parse period and time for sorting
+  /**
+   * Helper function to parse period and time for sorting
+   * so we can list in-progress games first, etc.
+   */
   const parseGameTime = (time) => {
+    // "Start: 7:30 PM"
     if (time.startsWith("Start:"))
       return { period: -1, minutes: 0, seconds: 0 };
 
-    const periodMatch = time.match(/(\d+)Q/);
+    // "1Q 10:44", "OT 5:00", "Final", etc.
+    const periodMatch = time.match(/(\d+)Q/) || time.match(/(\d+)OT/);
     const timeMatch = time.match(/(\d+):(\d+)/);
 
     const period = periodMatch ? parseInt(periodMatch[1]) : 0;
@@ -340,7 +365,12 @@ const Scoreboard = () => {
     return { period, minutes, seconds };
   };
 
-  // Sort function for games
+  /**
+   * Sort function for games:
+   * - In-progress (higher period first),
+   * - then scheduled,
+   * - then final, etc.
+   */
   const sortGames = (a, b) => {
     const timeA = parseGameTime(a.time);
     const timeB = parseGameTime(b.time);
@@ -354,65 +384,96 @@ const Scoreboard = () => {
     return totalSecondsA - totalSecondsB;
   };
 
-  // Filter and sort games
+  /**
+   * Separate games into live, upcoming, and completed categories.
+   */
   const liveGames = games
     .filter(
       (game) =>
         !game.time.startsWith("Start:") &&
-        game.time !== "4Q 0:00" &&
-        game.time !== "0Q 10:44" &&
-        game.time !== "0Q 10:39"
+        game.time !== "Final" &&
+        !game.time.startsWith("0Q")
     )
     .sort(sortGames);
 
   const scheduledGames = games.filter(
-    (game) =>
-      game.time.startsWith("Start:") ||
-      game.time === "0Q 10:44" ||
-      game.time === "0Q 10:39"
+    (game) => game.time.startsWith("Start:") || game.time.startsWith("0Q")
   );
 
-  const completedGames = games.filter((game) => game.time === "4Q 0:00");
+  const completedGames = games.filter((game) => game.time === "Final");
 
+  /**
+   * Click handler to show the BoxScore for a selected game.
+   * (This is only called if the game has started, because
+   *  we prevent the click in <GameCard> for not-started games.)
+   */
   const handleBoxScoreClick = (gameId) => {
     setSelectedGameId(gameId);
     setBoxScoreOpen(true);
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      {/* Header with Progress */}
+    <Container
+      maxWidth="md"
+      sx={{
+        py: isMobile ? 2 : 4,
+        px: isMobile ? 1 : 2,
+      }}
+    >
+      {/* Header (you can still display last update time if desired) */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: 3,
+          mb: isMobile ? 2 : 3,
           backgroundColor: "rgba(0, 0, 0, 0.2)",
           borderRadius: 1,
-          padding: "8px 16px",
+          padding: isMobile ? "6px 12px" : "8px 16px",
         }}
       >
-        <Typography variant="h6">NBA Scoreboard</Typography>
-        <RefreshProgress progress={progress} lastUpdateTime={lastUpdateTime} />
+        <Typography
+          variant={isMobile ? "subtitle1" : "h6"}
+          sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
+        >
+          NBA Scoreboard
+        </Typography>
+        {lastUpdateTime && (
+          <Typography
+            variant="caption"
+            sx={{
+              opacity: 0.7,
+              fontSize: isMobile ? "0.7rem" : "0.75rem",
+            }}
+          >
+            Last update:{" "}
+            {lastUpdateTime.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })}
+          </Typography>
+        )}
       </Box>
 
       {/* Live Games Section */}
       {liveGames.length > 0 && (
-        <Box mb={4}>
+        <Box mb={isMobile ? 2 : 4}>
           <Typography
-            variant="h6"
+            variant={isMobile ? "subtitle1" : "h6"}
             gutterBottom
             sx={{
               display: "flex",
               alignItems: "center",
+              fontSize: isMobile ? "1rem" : "1.25rem",
             }}
           >
+            {/* Little red dot to indicate live */}
             <Box
               component="span"
               sx={{
-                width: 8,
-                height: 8,
+                width: isMobile ? 6 : 8,
+                height: isMobile ? 6 : 8,
                 borderRadius: "50%",
                 backgroundColor: "error.main",
                 display: "inline-block",
@@ -426,7 +487,6 @@ const Scoreboard = () => {
             <GameCard
               key={index}
               game={game}
-              isLive={true}
               onBoxScoreClick={handleBoxScoreClick}
             />
           ))}
@@ -435,15 +495,20 @@ const Scoreboard = () => {
 
       {/* Scheduled Games Section */}
       {scheduledGames.length > 0 && (
-        <Box mb={4}>
-          <Typography variant="h6" gutterBottom>
+        <Box mb={isMobile ? 2 : 4}>
+          <Typography
+            variant={isMobile ? "subtitle1" : "h6"}
+            gutterBottom
+            sx={{
+              fontSize: isMobile ? "1rem" : "1.25rem",
+            }}
+          >
             Upcoming Games
           </Typography>
           {scheduledGames.map((game, index) => (
             <GameCard
               key={index}
               game={game}
-              isLive={false}
               onBoxScoreClick={handleBoxScoreClick}
             />
           ))}
@@ -454,19 +519,23 @@ const Scoreboard = () => {
       {completedGames.length > 0 && (
         <Box>
           <Typography
-            variant="h6"
+            variant={isMobile ? "subtitle1" : "h6"}
             gutterBottom
             sx={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              fontSize: isMobile ? "1rem" : "1.25rem",
             }}
           >
             Completed Games
             <IconButton
-              size="small"
+              size={isMobile ? "small" : "medium"}
               onClick={() => setShowAllGames(!showAllGames)}
-              sx={{ ml: 1 }}
+              sx={{
+                ml: 1,
+                padding: isMobile ? "4px" : "8px",
+              }}
             >
               {showAllGames ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
             </IconButton>
@@ -477,7 +546,6 @@ const Scoreboard = () => {
               <GameCard
                 key={index}
                 game={game}
-                isLive={false}
                 onBoxScoreClick={handleBoxScoreClick}
               />
             ))}
@@ -485,6 +553,11 @@ const Scoreboard = () => {
         </Box>
       )}
 
+      {/** Boxscore Modal
+       * BoxScore component still uses the REST endpoint `GET /boxscore/{game_id}`
+       * We won't call it for games that have not started, because <GameCard>
+       * prevents the click if `game.time` starts with "Start:" or "0Q".
+       */}
       <BoxScore
         gameId={selectedGameId}
         open={boxScoreOpen}
@@ -493,6 +566,26 @@ const Scoreboard = () => {
           setSelectedGameId(null);
         }}
       />
+
+      {/* Add responsive styling for potential empty state */}
+      {games.length === 0 && (
+        <Box
+          sx={{
+            textAlign: "center",
+            py: isMobile ? 4 : 6,
+            opacity: 0.7,
+          }}
+        >
+          <Typography
+            variant={isMobile ? "body1" : "h6"}
+            sx={{
+              fontSize: isMobile ? "0.875rem" : "1rem",
+            }}
+          >
+            No games scheduled
+          </Typography>
+        </Box>
+      )}
     </Container>
   );
 };
