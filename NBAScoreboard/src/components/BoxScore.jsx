@@ -24,14 +24,14 @@ import { Close } from "@mui/icons-material";
 import { visuallyHidden } from "@mui/utils";
 
 const headCells = [
-  { id: "name", numeric: false, label: "PLAYER" },
-  { id: "minutes", numeric: false, label: "MIN" },
-  { id: "points", numeric: true, label: "PTS" },
-  { id: "reboundsTotal", numeric: true, label: "REB" },
-  { id: "assists", numeric: true, label: "AST" },
-  { id: "fieldGoals", numeric: true, label: "FG" },
-  { id: "threePointers", numeric: true, label: "3PT" },
-  { id: "plusMinusPoints", numeric: true, label: "+/-" },
+  { id: "name", numeric: false, label: "PLAYER", width: "25%" },
+  { id: "minutes", numeric: false, label: "MIN", width: "10%" }, // Changed numeric to false for left alignment
+  { id: "points", numeric: true, label: "PTS", width: "10%" },
+  { id: "reboundsTotal", numeric: true, label: "REB", width: "10%" },
+  { id: "assists", numeric: true, label: "AST", width: "10%" },
+  { id: "fieldGoals", numeric: true, label: "FG", width: "12.5%" },
+  { id: "threePointers", numeric: true, label: "3PT", width: "12.5%" },
+  { id: "plusMinusPoints", numeric: true, label: "+/-", width: "10%" },
 ];
 
 // Helper function to format player names
@@ -100,8 +100,7 @@ function getComparator(order, orderBy) {
 }
 
 function EnhancedTableHead(props) {
-  const { order, orderBy, onRequestSort } = props;
-
+  const { order, orderBy, onRequestSort, isMobile } = props;
   const createSortHandler = (property) => (event) => {
     onRequestSort(event, property);
   };
@@ -109,56 +108,69 @@ function EnhancedTableHead(props) {
   return (
     <TableHead>
       <TableRow>
-        {headCells.map((headCell) => (
-          <TableCell
-            key={headCell.id}
-            align={headCell.numeric ? "right" : "left"}
-            sortDirection={orderBy === headCell.id ? order : false}
-            sx={{
-              backgroundColor: "rgb(30, 30, 30)",
-              color: "white",
-              fontWeight: "bold",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <TableSortLabel
-              active={orderBy === headCell.id}
-              direction={orderBy === headCell.id ? order : "desc"}
-              onClick={createSortHandler(headCell.id)}
+        {headCells.map((headCell) => {
+          const isMinutesColumn = headCell.id === "minutes";
+
+          return (
+            <TableCell
+              key={headCell.id}
+              align={headCell.numeric ? "right" : "left"}
+              sortDirection={orderBy === headCell.id ? order : false}
               sx={{
-                "&.MuiTableSortLabel-root": {
-                  color: "rgba(255, 255, 255, 0.7)",
+                backgroundColor: "rgb(30, 30, 30)",
+                color: "white",
+                fontWeight: "bold",
+                width: headCell.width,
+                padding: isMobile ? "4px 4px" : "8px 4px",
+                "& .MuiTableSortLabel-root": {
+                  opacity: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
                 },
-                "&.MuiTableSortLabel-root:hover": {
-                  color: "white",
-                },
-                "&.Mui-active": {
-                  color: "white",
-                },
+                // Hide sort icons for non-active columns
                 "& .MuiTableSortLabel-icon": {
-                  color: "white !important",
-                  transition: "transform 150ms ease",
+                  opacity: isMinutesColumn ? 1 : 0,
                 },
-                // Specific transforms for different states
-                "&.MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon": {
-                  transform:
-                    order === "desc" ? "rotate(0deg)" : "rotate(180deg)",
-                },
-                "&.MuiTableSortLabel-root:not(.Mui-active) .MuiTableSortLabel-icon":
-                  {
-                    transform: "rotate(0deg)", // Initial state for inactive columns
-                  },
               }}
             >
-              {headCell.label}
-              {orderBy === headCell.id ? (
-                <Box component="span" sx={visuallyHidden}>
-                  {order === "desc" ? "sorted descending" : "sorted ascending"}
-                </Box>
-              ) : null}
-            </TableSortLabel>
-          </TableCell>
-        ))}
+              <TableSortLabel
+                active={orderBy === headCell.id}
+                direction={orderBy === headCell.id ? order : "desc"}
+                onClick={createSortHandler(headCell.id)}
+                hideSortIcon={!isMinutesColumn && orderBy !== headCell.id}
+                sx={{
+                  color: "white !important",
+                  padding: 0,
+                  margin: 0,
+                  "& .MuiTableSortLabel-icon": {
+                    marginLeft: "2px !important",
+                    marginRight: "0px !important",
+                    width: "16px",
+                    height: "16px",
+                    position: "relative",
+                  },
+                  "&.MuiTableSortLabel-root.Mui-active": {
+                    color: "white !important",
+                  },
+                  "&.MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon":
+                    {
+                      color: "white !important",
+                      opacity: 1,
+                    },
+                  // Only show hover effects when column becomes active
+                  "&:hover": {
+                    color: "white !important",
+                    "& .MuiTableSortLabel-icon": {
+                      opacity: orderBy === headCell.id ? 1 : 0,
+                    },
+                  },
+                }}
+              >
+                {headCell.label}
+              </TableSortLabel>
+            </TableCell>
+          );
+        })}
       </TableRow>
     </TableHead>
   );
@@ -241,14 +253,30 @@ function TeamBoxScoreTable({ team, teamName }) {
         <TableContainer>
           <Table
             sx={{
+              tableLayout: "fixed",
+              width: "100%",
               minWidth: isMobile ? "auto" : 750,
               "& .MuiTableCell-root": {
-                padding: isMobile ? "6px 4px" : "8px 16px",
-                fontSize: isMobile ? "0.75rem" : "0.875rem",
+                padding: isMobile ? "4px" : "8px", // Even padding for all cells
+                fontSize: isMobile ? "0.7rem" : "0.875rem",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+              },
+              "& col": {
+                width: "auto",
               },
             }}
             size="small"
           >
+            {/* Add colgroup to explicitly define column widths */}
+            <colgroup>
+              {headCells.map((cell, index) => (
+                <col key={index} style={{ width: cell.width }} />
+              ))}
+            </colgroup>
+
             <EnhancedTableHead
               order={order}
               orderBy={orderBy}
@@ -273,33 +301,83 @@ function TeamBoxScoreTable({ team, teamName }) {
                   <TableCell
                     sx={{
                       color: "white",
-                      maxWidth: isMobile ? 100 : 200,
+                      width: headCells[0].width,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      padding: isMobile ? "4px" : "8px",
                     }}
                   >
                     {formatPlayerName(player.name, isMobile)}
                   </TableCell>
-                  <TableCell sx={{ color: "white" }}>
+                  {/* Apply consistent padding and width for all other cells */}
+                  <TableCell
+                    sx={{
+                      color: "white",
+                      width: headCells[1].width,
+                      padding: isMobile ? "4px" : "8px",
+                    }}
+                  >
                     {formatMinutes(player.statistics.minutes)}
                   </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: "white",
+                      width: headCells[2].width,
+                      padding: isMobile ? "4px" : "8px",
+                    }}
+                  >
                     {player.statistics.points}
                   </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: "white",
+                      width: headCells[3].width,
+                      padding: isMobile ? "4px" : "8px",
+                    }}
+                  >
                     {player.statistics.reboundsTotal}
                   </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: "white",
+                      width: headCells[4].width,
+                      padding: isMobile ? "4px" : "8px",
+                    }}
+                  >
                     {player.statistics.assists}
                   </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: "white",
+                      width: headCells[5].width,
+                      padding: isMobile ? "4px" : "8px",
+                    }}
+                  >
                     {`${player.statistics.fieldGoalsMade}-${player.statistics.fieldGoalsAttempted}`}
                   </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: "white",
+                      width: headCells[6].width,
+                      padding: isMobile ? "4px" : "8px",
+                    }}
+                  >
                     {`${player.statistics.threePointersMade}-${player.statistics.threePointersAttempted}`}
                   </TableCell>
-                  <TableCell align="right" sx={{ color: "white" }}>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: "white",
+                      width: headCells[7].width,
+                      padding: isMobile ? "4px" : "8px",
+                    }}
+                  >
                     {player.statistics.plusMinusPoints}
                   </TableCell>
                 </TableRow>
