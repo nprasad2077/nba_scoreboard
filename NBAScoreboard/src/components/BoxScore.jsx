@@ -22,6 +22,44 @@ import {
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import { visuallyHidden } from "@mui/utils";
+import { teamLogos } from "../assets/nba_logos/teamLogosMap";
+
+const getTeamAbbreviation = (teamCity, teamName) => {
+  const teamAbbreviations = {
+    Atlanta: "ATL",
+    Boston: "BOS",
+    Brooklyn: "BKN",
+    Charlotte: "CHA",
+    Chicago: "CHI",
+    Cleveland: "CLE",
+    Dallas: "DAL",
+    Denver: "DEN",
+    Detroit: "DET",
+    "Golden State": "GSW",
+    Houston: "HOU",
+    Indiana: "IND",
+    LA: "LAC",
+    "Los Angeles": "LAL",
+    Memphis: "MEM",
+    Miami: "MIA",
+    Milwaukee: "MIL",
+    Minnesota: "MIN",
+    "New Orleans": "NOP",
+    "New York": "NYK",
+    "Oklahoma City": "OKC",
+    Orlando: "ORL",
+    Philadelphia: "PHI",
+    Phoenix: "PHX",
+    Portland: "POR",
+    Sacramento: "SAC",
+    "San Antonio": "SAS",
+    Toronto: "TOR",
+    Utah: "UTA",
+    Washington: "WAS",
+  };
+
+  return teamAbbreviations[teamCity] || "";
+};
 
 const headCells = [
   { id: "name", numeric: false, label: "PLAYER", width: "25%" },
@@ -110,7 +148,7 @@ function EnhancedTableHead(props) {
       <TableRow>
         {headCells.map((headCell) => {
           const isMinutesColumn = headCell.id === "minutes";
-          
+
           return (
             <TableCell
               key={headCell.id}
@@ -152,10 +190,11 @@ function EnhancedTableHead(props) {
                   "&.MuiTableSortLabel-root.Mui-active": {
                     color: "white !important",
                   },
-                  "&.MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon": {
-                    color: "white !important",
-                    opacity: 1,
-                  },
+                  "&.MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon":
+                    {
+                      color: "white !important",
+                      opacity: 1,
+                    },
                   // Only show hover effects when column becomes active
                   "&:hover": {
                     color: "white !important",
@@ -235,8 +274,21 @@ function TeamBoxScoreTable({ team, teamName }) {
             pl: isMobile ? 1 : 2,
             pr: isMobile ? 0.5 : 1,
             minHeight: isMobile ? 48 : 64,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
           }}
         >
+          <Box
+            component="img"
+            src={teamLogos[getTeamAbbreviation(team.teamCity, team.teamName)]}
+            alt={`${team.teamCity} ${team.teamName} logo`}
+            sx={{
+              height: isMobile ? 24 : 32,
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
           <Typography
             sx={{
               flex: "1 1 100%",
