@@ -230,9 +230,10 @@ async def fetch_and_broadcast_updates():
                 if not previous_scoreboard_data or scoreboard_changed(previous_scoreboard_data, formatted_data):
                     await manager.broadcast(formatted_data)
                     previous_scoreboard_data = formatted_data
+                    logger.info(" Broadcast")
 
             # Sleep 1 second between each scoreboard fetch
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
             logger.info(" Ping NBA")
 
         except Exception as e:
