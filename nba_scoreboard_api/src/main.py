@@ -233,7 +233,7 @@ async def fetch_and_broadcast_updates():
                     logger.info(" Broadcast")
 
             # Sleep 1 second between each scoreboard fetch
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.25)
             logger.info(" Ping NBA")
 
         except Exception as e:
