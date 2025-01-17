@@ -81,6 +81,58 @@ const teamLogos = {
 };
 
 /**
+ * Converts Eastern Standard Time (EST) to local time
+ * @param {string} timeStr - Time string in format "Start: HH:MM PM"
+ * @returns {string} - Formatted time string in local timezone
+ */
+const convertToLocalTime = (timeStr) => {
+  // If it's not a start time (e.g., "1Q 10:44" or "Final"), return as is
+  if (!timeStr.startsWith("Start:")) {
+    return timeStr;
+  }
+
+  // Extract the time part
+  const [_, timeComponent] = timeStr.split("Start: ");
+  const [time, period] = timeComponent.trim().split(" ");
+  const [hours, minutes] = time.split(":").map((num) => parseInt(num));
+
+  // Convert to 24-hour format
+  let hour24 = hours;
+  if (period === "PM" && hours !== 12) {
+    hour24 += 12;
+  } else if (period === "AM" && hours === 12) {
+    hour24 = 0;
+  }
+
+  // Get today's date
+  const today = new Date();
+
+  // Create a date object with the game time in EST
+  // Adding 5 hours to convert EST to UTC (EST is UTC-5)
+  const etDate = new Date(
+    Date.UTC(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      hour24 + 5, // EST to UTC offset
+      minutes
+    )
+  );
+
+  // Convert to local time
+  const localTime = new Date(etDate);
+
+  // Format the time in local timezone
+  const localTimeStr = localTime.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  return `Start: ${localTimeStr}`;
+};
+
+/**
  * Renders away/home team info (logo + name + optional score).
  */
 const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
@@ -152,7 +204,8 @@ const GameCard = ({ game, onBoxScoreClick }) => {
     .split(" - ")
     .map((score) => parseInt(score) || 0);
 
-  const gameStatus = game.time;
+  // Convert the game time to local timezone
+  const gameStatus = convertToLocalTime(game.time);
 
   // Check if game is not started yet:
   const isNotStarted =
@@ -228,7 +281,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
                 fontSize: isMobile ? "0.75rem" : "0.875rem",
               }}
             >
-              {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "} 
+              {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "}
             </Typography>
           </Box>
 
@@ -313,7 +366,7 @@ const Scoreboard = () => {
   };
 
   /**
-   * Sort function for games: 
+   * Sort function for games:
    * - In-progress (higher period first),
    * - then scheduled,
    * - then final, etc.
