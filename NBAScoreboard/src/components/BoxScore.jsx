@@ -110,7 +110,7 @@ function EnhancedTableHead(props) {
       <TableRow>
         {headCells.map((headCell) => {
           const isMinutesColumn = headCell.id === "minutes";
-
+          
           return (
             <TableCell
               key={headCell.id}
@@ -128,9 +128,9 @@ function EnhancedTableHead(props) {
                   alignItems: "center",
                 },
                 // Hide sort icons for non-active columns
-                "& .MuiTableSortLabel-icon": {
-                  opacity: isMinutesColumn ? 1 : 0,
-                },
+                // "& .MuiTableSortLabel-icon": {
+                //   opacity: isMinutesColumn ? 1 : 0,
+                // },
               }}
             >
               <TableSortLabel
@@ -152,11 +152,10 @@ function EnhancedTableHead(props) {
                   "&.MuiTableSortLabel-root.Mui-active": {
                     color: "white !important",
                   },
-                  "&.MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon":
-                    {
-                      color: "white !important",
-                      opacity: 1,
-                    },
+                  "&.MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon": {
+                    color: "white !important",
+                    opacity: 1,
+                  },
                   // Only show hover effects when column becomes active
                   "&:hover": {
                     color: "white !important",
