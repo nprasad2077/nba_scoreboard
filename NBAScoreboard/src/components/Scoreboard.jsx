@@ -1,6 +1,7 @@
 // ScoreBoard.jsx
 import React, { useState, useEffect } from "react";
 import BoxScore from "./BoxScore";
+import ConnectionIndicator from "./ConnectionIndicator";
 import {
   Box,
   Card,
@@ -311,37 +312,96 @@ const Scoreboard = () => {
   // Track the last time we received an update with new information (for display only)
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
+  // Connection Indicator
+  const [isConnected, setIsConnected] = useState(false);
+
   /**
    * On mount, establish a WebSocket connection to get live updates.
    */
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8000/ws");
+    let ws = null;
+    let reconnectTimeout = null;
+    let reconnectAttempts = 0; // Track number of attempts
 
-    ws.onopen = () => {
-      console.log("Connected to NBA Stats WebSocket");
-    };
+    const connectWebSocket = () => {
+      // Clear any existing timeout
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
 
-    ws.onmessage = (event) => {
+      // Create new WebSocket connection
       try {
-        const gamesData = JSON.parse(event.data);
-        setGames(gamesData);
-        setLastUpdateTime(new Date());
+        ws = new WebSocket("ws://localhost:8000/ws");
+
+        ws.onopen = () => {
+          console.log("Connected to NBA Stats WebSocket");
+          setIsConnected(true);
+          reconnectAttempts = 0; // Reset attempts counter on successful connection
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const gamesData = JSON.parse(event.data);
+            setGames(gamesData);
+            setLastUpdateTime(new Date());
+          } catch (error) {
+            console.error("Error parsing WebSocket message:", error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.log(
+            `WebSocket error (attempt ${reconnectAttempts + 1}):`,
+            error
+          );
+          setIsConnected(false);
+        };
+
+        ws.onclose = (event) => {
+          console.log(
+            `WebSocket closed (attempt ${reconnectAttempts + 1}):`,
+            event.code,
+            event.reason
+          );
+          setIsConnected(false);
+
+          // Increment attempts counter
+          reconnectAttempts++;
+
+          // Schedule reconnection with exponential backoff
+          const backoffTime = Math.min(
+            1000 * Math.pow(2, reconnectAttempts),
+            10000
+          );
+          console.log(`Reconnecting in ${backoffTime}ms...`);
+
+          reconnectTimeout = setTimeout(() => {
+            console.log("Attempting to reconnect...");
+            connectWebSocket();
+          }, backoffTime);
+        };
       } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
+        console.error("Error creating WebSocket:", error);
+        // If we can't even create the WebSocket, try again after delay
+        reconnectTimeout = setTimeout(connectWebSocket, 5000);
       }
     };
 
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
+    // Initial connection attempt after a short delay
+    // This gives the backend server time to start up
+    reconnectTimeout = setTimeout(() => {
+      console.log("Making initial connection attempt...");
+      connectWebSocket();
+    }, 5);
 
-    ws.onclose = () => {
-      console.log("Disconnected from NBA Stats WebSocket");
-    };
-
-    // Cleanup: close the WS on unmount
+    // Cleanup function
     return () => {
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
     };
   }, []);
 
@@ -420,7 +480,7 @@ const Scoreboard = () => {
         px: isMobile ? 1 : 2,
       }}
     >
-      {/* Header (you can still display last update time if desired) */}
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -438,22 +498,25 @@ const Scoreboard = () => {
         >
           NBA Scoreboard
         </Typography>
-        {lastUpdateTime && (
-          <Typography
-            variant="caption"
-            sx={{
-              opacity: 0.7,
-              fontSize: isMobile ? "0.7rem" : "0.75rem",
-            }}
-          >
-            Last update:{" "}
-            {lastUpdateTime.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
-          </Typography>
-        )}
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <ConnectionIndicator connected={isConnected} />
+          {lastUpdateTime && (
+            <Typography
+              variant="caption"
+              sx={{
+                opacity: 0.7,
+                fontSize: isMobile ? "0.7rem" : "0.75rem",
+              }}
+            >
+              Last update:{" "}
+              {lastUpdateTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       {/* Live Games Section */}
