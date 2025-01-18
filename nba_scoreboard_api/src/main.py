@@ -11,6 +11,7 @@ from dateutil import parser
 import re
 import os
 from dotenv import load_dotenv
+from fastapi.responses import RedirectResponse
 
 load_dotenv()
 
@@ -255,7 +256,11 @@ def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
     return False
 
 
-app = FastAPI()
+app = FastAPI(
+    title="NBA Scoreboard API",
+    description="Real-time NBA scoreboard and statistics",
+    version="1.0.0",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -419,6 +424,17 @@ def get_box_score(game_id: str) -> GameBoxScore:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/docs")
+
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
@@ -463,7 +479,6 @@ async def startup_event():
 if __name__ == "__main__":
     import uvicorn
 
-    # Get host and port from environment variables with fallbacks
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", 8000))
 
