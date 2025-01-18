@@ -9,6 +9,10 @@ import json
 import logging
 from dateutil import parser
 import re
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from src.models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
@@ -26,6 +30,7 @@ class GameStateManager:
     and updates on each call. This allows going “backwards” in period or
     status if the data feed changes unexpectedly.
     """
+
     def __init__(self):
         self.game_states = {}
         self._lock = asyncio.Lock()
@@ -320,7 +325,9 @@ async def fetch_and_broadcast_updates():
                     period = game_dict.get("period", 0)
                     clock = game_dict.get("gameClock", "")
                     # Fire off an async update (no need to block one by one if we wanted concurrency)
-                    await game_state_manager.update_game_state(game_id, period, clock, status)
+                    await game_state_manager.update_game_state(
+                        game_id, period, clock, status
+                    )
 
                 # Now format data for broadcast
                 formatted_data = format_game_data(games_data)
@@ -363,7 +370,9 @@ def get_box_score(game_id: str) -> GameBoxScore:
                         oncourt=player.get("oncourt", False),
                         jerseyNum=player.get("jerseyNum", ""),
                         status=player.get("status", ""),
-                        statistics=PlayerStatistics(**(player.get("statistics", {}) or {})),
+                        statistics=PlayerStatistics(
+                            **(player.get("statistics", {}) or {})
+                        ),
                     )
                 )
 
@@ -379,7 +388,9 @@ def get_box_score(game_id: str) -> GameBoxScore:
                         oncourt=player.get("oncourt", False),
                         jerseyNum=player.get("jerseyNum", ""),
                         status=player.get("status", ""),
-                        statistics=PlayerStatistics(**(player.get("statistics", {}) or {})),
+                        statistics=PlayerStatistics(
+                            **(player.get("statistics", {}) or {})
+                        ),
                     )
                 )
 
@@ -451,4 +462,11 @@ async def startup_event():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+
+    # Get host and port from environment variables with fallbacks
+    HOST = os.getenv("HOST", "0.0.0.0")
+    PORT = int(os.getenv("PORT", 8000))
+
+    print(f"Starting server on {HOST}:{PORT}")
+
+    uvicorn.run(app, host=HOST, port=PORT, reload=False)
