@@ -328,17 +328,19 @@ const Scoreboard = () => {
         clearTimeout(reconnectTimeout);
       }
 
-      // Use environment variable for WebSocket URL
-      const wsUrl =
-        import.meta.env.VITE_API_URL?.replace("http://", "ws://") ||
-        "ws://localhost:8000";
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const wsUrl = apiUrl
+        .replace("http://", "ws://")
+        .replace("https://", "wss://");
       const wsEndpoint = `${wsUrl}/ws`;
+
+      console.log("Connecting to WebSocket at:", wsEndpoint); // Debug log
 
       try {
         ws = new WebSocket(wsEndpoint);
 
         ws.onopen = () => {
-          console.log("Connected to NBA Stats WebSocket");
+          console.log("Connected to NBA Stats WebSocket at:", wsEndpoint);
           setIsConnected(true);
           reconnectAttempts = 0;
         };
@@ -350,12 +352,15 @@ const Scoreboard = () => {
             setLastUpdateTime(new Date());
           } catch (error) {
             console.error("Error parsing WebSocket message:", error);
+            console.error("Raw message:", event.data); // Debug log
           }
         };
 
         ws.onerror = (error) => {
-          console.log(
-            `WebSocket error (attempt ${reconnectAttempts + 1}):`,
+          console.error(
+            `WebSocket error (attempt ${
+              reconnectAttempts + 1
+            }) at ${wsEndpoint}:`,
             error
           );
           setIsConnected(false);
@@ -363,7 +368,9 @@ const Scoreboard = () => {
 
         ws.onclose = (event) => {
           console.log(
-            `WebSocket closed (attempt ${reconnectAttempts + 1}):`,
+            `WebSocket closed at ${wsEndpoint} (attempt ${
+              reconnectAttempts + 1
+            }):`,
             event.code,
             event.reason
           );
@@ -371,6 +378,7 @@ const Scoreboard = () => {
 
           reconnectAttempts++;
 
+          // Exponential backoff with a max of 10 seconds
           const backoffTime = Math.min(
             1000 * Math.pow(2, reconnectAttempts),
             10000
@@ -378,22 +386,26 @@ const Scoreboard = () => {
           console.log(`Reconnecting in ${backoffTime}ms...`);
 
           reconnectTimeout = setTimeout(() => {
-            console.log("Attempting to reconnect...");
+            console.log(`Attempting to reconnect to ${wsEndpoint}...`);
             connectWebSocket();
           }, backoffTime);
         };
       } catch (error) {
-        console.error("Error creating WebSocket:", error);
+        console.error(
+          `Error creating WebSocket connection to ${wsEndpoint}:`,
+          error
+        );
         reconnectTimeout = setTimeout(connectWebSocket, 5000);
       }
     };
 
-    reconnectTimeout = setTimeout(() => {
-      console.log("Making initial connection attempt...");
-      connectWebSocket();
-    }, 5);
+    // Initial connection attempt
+    console.log("Making initial WebSocket connection attempt...");
+    connectWebSocket();
 
+    // Cleanup on unmount
     return () => {
+      console.log("Cleaning up WebSocket connection...");
       if (ws) {
         ws.close();
       }
@@ -402,7 +414,6 @@ const Scoreboard = () => {
       }
     };
   }, []);
-
   /**
    * Helper function to parse period and time for sorting
    * so we can list in-progress games first, etc.
