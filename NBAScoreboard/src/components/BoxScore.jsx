@@ -488,7 +488,7 @@ const BoxScore = ({ gameId, open, onClose }) => {
       try {
         setLoading(true);
         const response = await fetch(
-          `http://localhost:8000/boxscore/${gameId}`
+          `http://h840kckc8c8swg0cos4cs4g0.143.198.70.30.sslip.io//boxscore/${gameId}`
         );
         const data = await response.json();
         setBoxScore(data);
