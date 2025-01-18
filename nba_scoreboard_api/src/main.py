@@ -10,7 +10,7 @@ import logging
 from dateutil import parser
 import re
 
-from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
+from src.models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
