@@ -8,8 +8,16 @@ export default defineConfig({
     host: true,
     port: 5173,
   },
+  preview: {
+    port: 80,
+  },
   build: {
     outDir: "dist",
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
   },
 });

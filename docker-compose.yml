@@ -1,29 +1,35 @@
 version: '3.8'
+
 services:
   frontend:
     build:
       context: ./NBAScoreboard
       dockerfile: Dockerfile.prod
     ports:
-      - '80:80'
+      - "80:80"
     environment:
-      - 'VITE_API_URL=${API_URL:-http://backend:8000}'
+      - NODE_ENV=production
+      - VITE_API_URL=${API_URL:-http://backend:8000}
     depends_on:
       - backend
     networks:
       - app_network
+    restart: unless-stopped
+
   backend:
     build:
       context: ./nba_scoreboard_api
       dockerfile: Dockerfile.prod
     ports:
-      - '8000:8000'
+      - "8000:8000"
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - 'CORS_ORIGINS=${FRONTEND_URL:-http://localhost:80}'
+      - CORS_ORIGINS=${FRONTEND_URL:-http://localhost}
     networks:
       - app_network
+    restart: unless-stopped
+
 networks:
   app_network:
     driver: bridge
