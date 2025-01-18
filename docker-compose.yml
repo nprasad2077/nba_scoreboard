@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile.prod
     environment:
       - NODE_ENV=production
-      - VITE_API_URL=${API_URL:-http://backend:8000}
+      - VITE_API_URL=${API_URL}
     labels:
       - coolify.managed=true
       - traefik.enable=true
@@ -23,7 +23,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - CORS_ORIGINS=${FRONTEND_URL:-*}
+      - CORS_ORIGINS=${FRONTEND_URL}
     expose:
       - "8000"
     labels:

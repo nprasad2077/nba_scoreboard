@@ -321,22 +321,26 @@ const Scoreboard = () => {
   useEffect(() => {
     let ws = null;
     let reconnectTimeout = null;
-    let reconnectAttempts = 0; // Track number of attempts
+    let reconnectAttempts = 0;
 
     const connectWebSocket = () => {
-      // Clear any existing timeout
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
       }
 
-      // Create new WebSocket connection
+      // Use environment variable for WebSocket URL
+      const wsUrl =
+        import.meta.env.VITE_API_URL?.replace("http://", "ws://") ||
+        "ws://localhost:8000";
+      const wsEndpoint = `${wsUrl}/ws`;
+
       try {
-        ws = new WebSocket("ws://localhost:8000/ws");
+        ws = new WebSocket(wsEndpoint);
 
         ws.onopen = () => {
           console.log("Connected to NBA Stats WebSocket");
           setIsConnected(true);
-          reconnectAttempts = 0; // Reset attempts counter on successful connection
+          reconnectAttempts = 0;
         };
 
         ws.onmessage = (event) => {
@@ -365,10 +369,8 @@ const Scoreboard = () => {
           );
           setIsConnected(false);
 
-          // Increment attempts counter
           reconnectAttempts++;
 
-          // Schedule reconnection with exponential backoff
           const backoffTime = Math.min(
             1000 * Math.pow(2, reconnectAttempts),
             10000
@@ -382,19 +384,15 @@ const Scoreboard = () => {
         };
       } catch (error) {
         console.error("Error creating WebSocket:", error);
-        // If we can't even create the WebSocket, try again after delay
         reconnectTimeout = setTimeout(connectWebSocket, 5000);
       }
     };
 
-    // Initial connection attempt after a short delay
-    // This gives the backend server time to start up
     reconnectTimeout = setTimeout(() => {
       console.log("Making initial connection attempt...");
       connectWebSocket();
     }, 5);
 
-    // Cleanup function
     return () => {
       if (ws) {
         ws.close();
