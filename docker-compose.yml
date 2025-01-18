@@ -1,39 +1,24 @@
+# docker-compose.prod.yml
 version: '3.8'
 
 services:
-  frontend:
-    build:
-      context: ./NBAScoreboard
-      dockerfile: Dockerfile.prod
-    environment:
-      - NODE_ENV=production
-      - VITE_API_URL=${API_URL}
-    labels:
-      - coolify.managed=true
-      - traefik.enable=true
-      - traefik.http.middlewares.gzip.compress=true
-    networks:
-      - app_network
-    restart: unless-stopped
-
   backend:
     build:
       context: ./nba_scoreboard_api
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile
+    # If your backend is serving on 8000
+    ports:
+      - "8000:8000"
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
-      - CORS_ORIGINS=${FRONTEND_URL}
-    expose:
-      - "8000"
-    labels:
-      - coolify.managed=true
-      - traefik.enable=true
-      - traefik.http.middlewares.gzip.compress=true
-    networks:
-      - app_network
-    restart: unless-stopped
+      # If your code reads env vars or depends on them
+      - SOME_BACKEND_ENV=production
 
-networks:
-  app_network:
-    driver: bridge
+  frontend:
+    build:
+      context: ./NBAScoreboard
+      dockerfile: Dockerfile
+    # We'll expose port 80 from the NGINX container (or serve)
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
