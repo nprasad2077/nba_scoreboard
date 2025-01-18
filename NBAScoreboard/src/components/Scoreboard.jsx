@@ -328,7 +328,7 @@ const Scoreboard = () => {
         clearTimeout(reconnectTimeout);
       }
 
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiUrl = import.meta.env.VITE_API_URL || "http://h840kckc8c8swg0cos4cs4g0.143.198.70.30.sslip.io";
       const wsUrl = apiUrl
         .replace("http://", "ws://")
         .replace("https://", "wss://");
