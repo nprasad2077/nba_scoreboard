@@ -5,13 +5,13 @@ services:
     build:
       context: ./NBAScoreboard
       dockerfile: Dockerfile.prod
-    ports:
-      - "80:80"
     environment:
       - NODE_ENV=production
       - VITE_API_URL=${API_URL:-http://backend:8000}
-    depends_on:
-      - backend
+    labels:
+      - coolify.managed=true
+      - traefik.enable=true
+      - traefik.http.middlewares.gzip.compress=true
     networks:
       - app_network
     restart: unless-stopped
@@ -20,12 +20,16 @@ services:
     build:
       context: ./nba_scoreboard_api
       dockerfile: Dockerfile.prod
-    ports:
-      - "8000:8000"
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - CORS_ORIGINS=${FRONTEND_URL:-http://localhost}
+      - CORS_ORIGINS=${FRONTEND_URL:-*}
+    expose:
+      - "8000"
+    labels:
+      - coolify.managed=true
+      - traefik.enable=true
+      - traefik.http.middlewares.gzip.compress=true
     networks:
       - app_network
     restart: unless-stopped
