@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile.prod
     container_name: "nba-scoreboard-frontend"
     ports:
-      - "80:80"
+      - "8118:80"
     # The React container has an Nginx reverse proxy configured via nginx.conf
     # to route /api -> http://backend:8000
     depends_on:
