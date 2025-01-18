@@ -9,9 +9,6 @@ services:
     # If your backend is serving on 8000
     ports:
       - "8000:8000"
-    environment:
-      # If your code reads env vars or depends on them
-      - SOME_BACKEND_ENV=production
 
   frontend:
     build:
