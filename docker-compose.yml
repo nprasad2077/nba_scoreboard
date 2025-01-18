@@ -1,32 +1,29 @@
-# docker-compose.yml
 version: '3.8'
-
 services:
   frontend:
     build:
       context: ./NBAScoreboard
-      dockerfile: Dockerfile
-      no_cache: true
+      dockerfile: Dockerfile.prod
     ports:
-      - "5173:5173"
+      - '80:80'
     environment:
-      - VITE_API_URL=http://backend:8000
+      - 'VITE_API_URL=${API_URL:-http://backend:8000}'
     depends_on:
       - backend
-    volumes:
-      - ./NBAScoreboard:/app
-      - /app/node_modules
-
+    networks:
+      - app_network
   backend:
     build:
       context: ./nba_scoreboard_api
-      dockerfile: Dockerfile
-      no_cache: true
+      dockerfile: Dockerfile.prod
     ports:
-      - "8000:8000"
-    volumes:
-      - ./nba_scoreboard_api:/app
-
+      - '8000:8000'
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - 'CORS_ORIGINS=${FRONTEND_URL:-http://localhost:80}'
+    networks:
+      - app_network
 networks:
-  default:
+  app_network:
     driver: bridge
