@@ -481,6 +481,7 @@ const BoxScore = ({ gameId, open, onClose }) => {
   const [boxScore, setBoxScore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const api_url = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"
 
   useEffect(() => {
     const fetchBoxScore = async () => {
@@ -488,7 +489,7 @@ const BoxScore = ({ gameId, open, onClose }) => {
       try {
         setLoading(true);
         const response = await fetch(
-          `http://localhost:8000/boxscore/${gameId}`
+          `${api_url}/boxscore/${gameId}`
         );
         const data = await response.json();
         setBoxScore(data);

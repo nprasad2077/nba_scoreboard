@@ -322,6 +322,7 @@ const Scoreboard = () => {
     let ws = null;
     let reconnectTimeout = null;
     let reconnectAttempts = 0; // Track number of attempts
+    const ws_url = import.meta.env.VITE_WS_URL || "http://localhost:8000"
 
     const connectWebSocket = () => {
       // Clear any existing timeout
@@ -331,7 +332,8 @@ const Scoreboard = () => {
 
       // Create new WebSocket connection
       try {
-        ws = new WebSocket("ws://localhost:8000/ws");
+        console.log(ws_url)
+        ws = new WebSocket(ws_url);
 
         ws.onopen = () => {
           console.log("Connected to NBA Stats WebSocket");
