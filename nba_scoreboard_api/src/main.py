@@ -1,21 +1,17 @@
 import asyncio
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Set, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from nba_api.live.nba.endpoints import scoreboard, boxscore
+from nba_api.stats.endpoints import leaguegamefinder
 import json
 import logging
 from dateutil import parser
 import re
-import os
-from dotenv import load_dotenv
-from fastapi.responses import RedirectResponse
 
-load_dotenv()
-
-from src.models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
+from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -256,11 +252,7 @@ def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
     return False
 
 
-app = FastAPI(
-    title="NBA Scoreboard API",
-    description="Real-time NBA scoreboard and statistics",
-    version="1.0.0",
-)
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -424,17 +416,6 @@ def get_box_score(game_id: str) -> GameBoxScore:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/docs")
-
-
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
@@ -467,6 +448,67 @@ async def read_box_score(game_id: str):
     return get_box_score(game_id)
 
 
+@app.get("/scoreboard/past")
+async def get_past_scoreboard(date: Optional[str] = Query(None)):
+    """
+    Return scoreboard data (final scores) for a given past date (in MM/DD/YYYY or YYYY-MM-DD).
+    Defaults to yesterday if no date is provided.
+    """
+    # 1) Determine which date to use
+    if date is None:
+        # Default: Yesterday in MM/DD/YYYY
+        date_str = (datetime.now() - timedelta(days=1)).strftime("%m/%d/%Y")
+    else:
+        # Attempt to parse the incoming date
+        # Allow either 'YYYY-MM-DD' or 'MM/DD/YYYY' if you wish
+        try:
+            # Try parsing as YYYY-MM-DD first
+            dt_obj = datetime.strptime(date, "%Y-%m-%d")
+            date_str = dt_obj.strftime("%m/%d/%Y")
+        except ValueError:
+            # If that fails, assume date might already be in MM/DD/YYYY
+            # or handle additional formats as needed
+            date_str = date
+
+    # 2) Fetch all NBA games for that date
+    df = leaguegamefinder.LeagueGameFinder(
+        date_from_nullable=date_str,
+        date_to_nullable=date_str,
+        league_id_nullable="00",  # '00' => NBA
+    ).get_data_frames()[0]
+
+    # 3) Group by GAME_ID to pair up home & away teams
+    grouped = df.groupby("GAME_ID")
+    games_json_list = []
+
+    for game_id, group_df in grouped:
+        # Identify away vs. home by the 'MATCHUP' column
+        away_row = group_df[group_df["MATCHUP"].str.contains("@")]
+        home_row = group_df[group_df["MATCHUP"].str.contains("vs.")]
+
+        # Check we have exactly one away row and one home row
+        if len(away_row) != 1 or len(home_row) != 1:
+            continue
+
+        away_row = away_row.iloc[0]
+        home_row = home_row.iloc[0]
+
+        # Build scoreboard-like JSON
+        scoreboard_item = {
+            "away_team": away_row["TEAM_NAME"],
+            "away_tricode": away_row["TEAM_ABBREVIATION"],
+            "score": f"{away_row['PTS']} - {home_row['PTS']}",
+            "home_team": home_row["TEAM_NAME"],
+            "home_tricode": home_row["TEAM_ABBREVIATION"],
+            "time": "Final",  # Past games => assume final
+            "gameId": str(game_id),
+        }
+
+        games_json_list.append(scoreboard_item)
+
+    return games_json_list
+
+
 @app.on_event("startup")
 async def startup_event():
     """
@@ -479,9 +521,6 @@ async def startup_event():
 if __name__ == "__main__":
     import uvicorn
 
-    HOST = os.getenv("HOST", "0.0.0.0")
-    PORT = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
 
-    print(f"Starting server on {HOST}:{PORT}")
-
-    uvicorn.run(app, host=HOST, port=PORT, reload=False)
+    print(f"Starting uvicorn server")
