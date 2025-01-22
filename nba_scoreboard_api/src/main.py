@@ -426,6 +426,7 @@ def get_box_score(game_id: str) -> GameBoxScore:
 async def root():
     return "/docs"
 
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -467,63 +468,117 @@ async def read_box_score(game_id: str):
 @app.get("/scoreboard/past")
 async def get_past_scoreboard(date: Optional[str] = Query(None)):
     """
-    Return scoreboard data (final scores) for a given past date (in MM/DD/YYYY or YYYY-MM-DD).
-    Defaults to yesterday if no date is provided.
+    Return scoreboard data (final scores) for a given past date.
+    Args:
+        date: Optional date string in MM/DD/YYYY or YYYY-MM-DD format. Defaults to yesterday.
+    Returns:
+        List of game results with scores and team information.
     """
-    # 1) Determine which date to use
-    if date is None:
-        # Default: Yesterday in MM/DD/YYYY
-        date_str = (datetime.now(pytz.UTC) - timedelta(days=1)).strftime("%m/%d/%Y")
-    else:
-        # Attempt to parse the incoming date
-        # Allow either 'YYYY-MM-DD' or 'MM/DD/YYYY' if you wish
+    try:
+        # 1. Date handling with timezone awareness
+        if date is None:
+            # Default to yesterday, using UTC
+            date_str = (datetime.now(pytz.UTC) - timedelta(days=1)).strftime("%m/%d/%Y")
+            logger.info(f"No date provided, using yesterday: {date_str}")
+        else:
+            # Parse provided date
+            try:
+                # Try YYYY-MM-DD format first
+                dt_obj = datetime.strptime(date, "%Y-%m-%d")
+                date_str = dt_obj.strftime("%m/%d/%Y")
+                logger.info(f"Parsed YYYY-MM-DD date to: {date_str}")
+            except ValueError:
+                try:
+                    # Try MM/DD/YYYY format
+                    dt_obj = datetime.strptime(date, "%m/%d/%Y")
+                    date_str = date
+                    logger.info(f"Using provided MM/DD/YYYY date: {date_str}")
+                except ValueError:
+                    error_msg = f"Invalid date format: {date}. Please use YYYY-MM-DD or MM/DD/YYYY"
+                    logger.error(error_msg)
+                    raise HTTPException(status_code=400, detail=error_msg)
+
+        # 2. NBA API call with timeout and error handling
+        logger.info(f"Fetching NBA games for date: {date_str}")
         try:
-            # Try parsing as YYYY-MM-DD first
-            dt_obj = datetime.strptime(date, "%Y-%m-%d")
-            date_str = dt_obj.strftime("%m/%d/%Y")
-        except ValueError:
-            # If that fails, assume date might already be in MM/DD/YYYY
-            # or handle additional formats as needed
-            date_str = date
+            game_finder = leaguegamefinder.LeagueGameFinder(
+                date_from_nullable=date_str,
+                date_to_nullable=date_str,
+                league_id_nullable="00",  # NBA
+                timeout=30,  # 30 second timeout
+            )
+        except Exception as api_error:
+            error_msg = f"NBA API connection error: {str(api_error)}"
+            logger.error(error_msg, exc_info=True)
+            raise HTTPException(status_code=503, detail=error_msg)
 
-    # 2) Fetch all NBA games for that date
-    logger.info(f"Fetching games for date: {date_str}")
-    df = leaguegamefinder.LeagueGameFinder(
-        date_from_nullable=date_str,
-        date_to_nullable=date_str,
-        league_id_nullable="00",  # '00' => NBA
-    ).get_data_frames()[0]
+        # 3. Data processing
+        try:
+            df = game_finder.get_data_frames()
+            if not df or len(df) == 0:
+                logger.warning(f"No games found for date: {date_str}")
+                return []
 
-    # 3) Group by GAME_ID to pair up home & away teams
-    grouped = df.groupby("GAME_ID")
-    games_json_list = []
+            df = df[0]  # Get first dataframe
+            if df.empty:
+                logger.warning(f"Empty dataframe returned for date: {date_str}")
+                return []
 
-    for game_id, group_df in grouped:
-        # Identify away vs. home by the 'MATCHUP' column
-        away_row = group_df[group_df["MATCHUP"].str.contains("@")]
-        home_row = group_df[group_df["MATCHUP"].str.contains("vs.")]
+        except Exception as df_error:
+            error_msg = f"Error processing NBA data: {str(df_error)}"
+            logger.error(error_msg, exc_info=True)
+            raise HTTPException(status_code=500, detail=error_msg)
 
-        # Check we have exactly one away row and one home row
-        if len(away_row) != 1 or len(home_row) != 1:
-            continue
+        # 4. Group and format data
+        games_json_list = []
+        try:
+            # Group by GAME_ID to pair home & away teams
+            grouped = df.groupby("GAME_ID")
 
-        away_row = away_row.iloc[0]
-        home_row = home_row.iloc[0]
+            for game_id, group_df in grouped:
+                # Identify away vs. home teams
+                away_row = group_df[group_df["MATCHUP"].str.contains("@")]
+                home_row = group_df[group_df["MATCHUP"].str.contains("vs.")]
 
-        # Build scoreboard-like JSON
-        scoreboard_item = {
-            "away_team": away_row["TEAM_NAME"],
-            "away_tricode": away_row["TEAM_ABBREVIATION"],
-            "score": f"{away_row['PTS']} - {home_row['PTS']}",
-            "home_team": home_row["TEAM_NAME"],
-            "home_tricode": home_row["TEAM_ABBREVIATION"],
-            "time": "Final",  # Past games => assume final
-            "gameId": str(game_id),
-        }
+                # Validate we have both home and away data
+                if len(away_row) != 1 or len(home_row) != 1:
+                    logger.warning(
+                        f"Skipping game_id {game_id}: Invalid home/away data"
+                    )
+                    continue
 
-        games_json_list.append(scoreboard_item)
+                away_row = away_row.iloc[0]
+                home_row = home_row.iloc[0]
 
-    return games_json_list
+                # Format game data
+                scoreboard_item = {
+                    "away_team": away_row["TEAM_NAME"],
+                    "away_tricode": away_row["TEAM_ABBREVIATION"],
+                    "score": f"{away_row['PTS']} - {home_row['PTS']}",
+                    "home_team": home_row["TEAM_NAME"],
+                    "home_tricode": home_row["TEAM_ABBREVIATION"],
+                    "time": "Final",
+                    "gameId": str(game_id),
+                }
+                games_json_list.append(scoreboard_item)
+
+            logger.info(
+                f"Successfully processed {len(games_json_list)} games for {date_str}"
+            )
+            return games_json_list
+
+        except Exception as format_error:
+            error_msg = f"Error formatting game data: {str(format_error)}"
+            logger.error(error_msg, exc_info=True)
+            raise HTTPException(status_code=500, detail=error_msg)
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as they already have the correct format
+    except Exception as e:
+        # Catch any other unexpected errors
+        error_msg = f"Unexpected error processing scoreboard request: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.on_event("startup")
