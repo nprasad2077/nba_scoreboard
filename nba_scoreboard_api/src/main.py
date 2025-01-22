@@ -1,4 +1,3 @@
-from nba_api.stats.library.parameters import headers
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +16,10 @@ from fastapi.responses import RedirectResponse
 from fastapi import status
 
 
-headers["User-Agent"] = (
+from nba_api.stats.library.http import NBAStatsHTTP
+
+# Set a custom User-Agent to mimic a browser
+NBAStatsHTTP._headers["User-Agent"] = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/96.0.4664.110 Safari/537.36"
