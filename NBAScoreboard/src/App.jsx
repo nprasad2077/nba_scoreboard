@@ -8,6 +8,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import Scoreboard from "./components/Scoreboard";
 import DateScoreBoard from "./components/DateScoreBoard";
 import { useState } from "react";
+import useWebSocket from "./hooks/useWebSocket";
 
 const darkTheme = createTheme({
   palette: {
@@ -24,21 +25,23 @@ const darkTheme = createTheme({
 
 // Custom TabPanel component to handle content display
 function TabPanel({ children, value, index }) {
+  if (value !== index) return null;
+
   return (
     <div
       role="tabpanel"
-      hidden={value !== index}
       id={`scoreboard-tabpanel-${index}`}
       aria-labelledby={`scoreboard-tab-${index}`}
-      style={{ height: value === index ? "100%" : 0 }}
+      style={{ height: "100%" }}
     >
-      {value === index && <Box sx={{ p: 3, height: "100%" }}>{children}</Box>}
+      <Box sx={{ p: 3, height: "100%" }}>{children}</Box>
     </div>
   );
 }
 
 function App() {
   const [currentTab, setCurrentTab] = useState(1);
+  const { games, isConnected, lastUpdateTime } = useWebSocket();
 
   const handleTabChange = (event, newValue) => {
     setCurrentTab(newValue);
@@ -51,9 +54,9 @@ function App() {
         sx={{
           width: "100%",
           bgcolor: "background.paper",
-          minHeight: "100vh", // Add this
-          display: "flex", // Add this
-          flexDirection: "column", // Add this
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <Tabs
@@ -77,13 +80,15 @@ function App() {
         </Tabs>
 
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {" "}
-          {/* Add this wrapper */}
           <TabPanel value={currentTab} index={0}>
             <DateScoreBoard />
           </TabPanel>
           <TabPanel value={currentTab} index={1}>
-            <Scoreboard />
+            <Scoreboard
+              games={games}
+              isConnected={isConnected}
+              lastUpdateTime={lastUpdateTime}
+            />
           </TabPanel>
         </Box>
       </Box>

@@ -302,110 +302,110 @@ const GameCard = ({ game, onBoxScoreClick }) => {
 /**
  * Main scoreboard component
  */
-const Scoreboard = () => {
+const Scoreboard = ({games, isConnected, lastUpdateTime}) => {
   const isMobile = useMediaQuery("(max-width:600px)");
-  const [games, setGames] = useState([]);
+  // const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
 
   // Track the last time we received an update with new information (for display only)
-  const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  // const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
   // Connection Indicator
-  const [isConnected, setIsConnected] = useState(false);
+  // const [isConnected, setIsConnected] = useState(false);
 
   /**
    * On mount, establish a WebSocket connection to get live updates.
    */
-  useEffect(() => {
-    let ws = null;
-    let reconnectTimeout = null;
-    let reconnectAttempts = 0; // Track number of attempts
-    const ws_url = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
+  // useEffect(() => {
+  //   let ws = null;
+  //   let reconnectTimeout = null;
+  //   let reconnectAttempts = 0; // Track number of attempts
+  //   const ws_url = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
 
-    const connectWebSocket = () => {
-      // Clear any existing timeout
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
+  //   const connectWebSocket = () => {
+  //     // Clear any existing timeout
+  //     if (reconnectTimeout) {
+  //       clearTimeout(reconnectTimeout);
+  //     }
 
-      // Create new WebSocket connection
-      try {
-        console.log(ws_url);
-        ws = new WebSocket(ws_url);
+  //     // Create new WebSocket connection
+  //     try {
+  //       console.log(ws_url);
+  //       ws = new WebSocket(ws_url);
 
-        ws.onopen = () => {
-          console.log("Connected to NBA Stats WebSocket");
-          setIsConnected(true);
-          reconnectAttempts = 0; // Reset attempts counter on successful connection
-        };
+  //       ws.onopen = () => {
+  //         console.log("Connected to NBA Stats WebSocket");
+  //         setIsConnected(true);
+  //         reconnectAttempts = 0; // Reset attempts counter on successful connection
+  //       };
 
-        ws.onmessage = (event) => {
-          try {
-            const gamesData = JSON.parse(event.data);
-            setGames(gamesData);
-            setLastUpdateTime(new Date());
-          } catch (error) {
-            console.error("Error parsing WebSocket message:", error);
-          }
-        };
+  //       ws.onmessage = (event) => {
+  //         try {
+  //           const gamesData = JSON.parse(event.data);
+  //           setGames(gamesData);
+  //           setLastUpdateTime(new Date());
+  //         } catch (error) {
+  //           console.error("Error parsing WebSocket message:", error);
+  //         }
+  //       };
 
-        ws.onerror = (error) => {
-          console.log(
-            `WebSocket error (attempt ${reconnectAttempts + 1}):`,
-            error
-          );
-          setIsConnected(false);
-        };
+  //       ws.onerror = (error) => {
+  //         console.log(
+  //           `WebSocket error (attempt ${reconnectAttempts + 1}):`,
+  //           error
+  //         );
+  //         setIsConnected(false);
+  //       };
 
-        ws.onclose = (event) => {
-          console.log(
-            `WebSocket closed (attempt ${reconnectAttempts + 1}):`,
-            event.code,
-            event.reason
-          );
-          setIsConnected(false);
+  //       ws.onclose = (event) => {
+  //         console.log(
+  //           `WebSocket closed (attempt ${reconnectAttempts + 1}):`,
+  //           event.code,
+  //           event.reason
+  //         );
+  //         setIsConnected(false);
 
-          // Increment attempts counter
-          reconnectAttempts++;
+  //         // Increment attempts counter
+  //         reconnectAttempts++;
 
-          // Schedule reconnection with exponential backoff
-          const backoffTime = Math.min(
-            1000 * Math.pow(2, reconnectAttempts),
-            10000
-          );
-          console.log(`Reconnecting in ${backoffTime}ms...`);
+  //         // Schedule reconnection with exponential backoff
+  //         const backoffTime = Math.min(
+  //           1000 * Math.pow(2, reconnectAttempts),
+  //           10000
+  //         );
+  //         console.log(`Reconnecting in ${backoffTime}ms...`);
 
-          reconnectTimeout = setTimeout(() => {
-            console.log("Attempting to reconnect...");
-            connectWebSocket();
-          }, backoffTime);
-        };
-      } catch (error) {
-        console.error("Error creating WebSocket:", error);
-        // If we can't even create the WebSocket, try again after delay
-        reconnectTimeout = setTimeout(connectWebSocket, 5000);
-      }
-    };
+  //         reconnectTimeout = setTimeout(() => {
+  //           console.log("Attempting to reconnect...");
+  //           connectWebSocket();
+  //         }, backoffTime);
+  //       };
+  //     } catch (error) {
+  //       console.error("Error creating WebSocket:", error);
+  //       // If we can't even create the WebSocket, try again after delay
+  //       reconnectTimeout = setTimeout(connectWebSocket, 5000);
+  //     }
+  //   };
 
-    // Initial connection attempt after a short delay
-    // This gives the backend server time to start up
-    reconnectTimeout = setTimeout(() => {
-      console.log("Making initial connection attempt...");
-      connectWebSocket();
-    }, 5);
+  //   // Initial connection attempt after a short delay
+  //   // This gives the backend server time to start up
+  //   reconnectTimeout = setTimeout(() => {
+  //     console.log("Making initial connection attempt...");
+  //     connectWebSocket();
+  //   }, 5);
 
-    // Cleanup function
-    return () => {
-      if (ws) {
-        ws.close();
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-    };
-  }, []);
+  //   // Cleanup function
+  //   return () => {
+  //     if (ws) {
+  //       ws.close();
+  //     }
+  //     if (reconnectTimeout) {
+  //       clearTimeout(reconnectTimeout);
+  //     }
+  //   };
+  // }, []);
 
   /**
    * Helper function to parse period and time for sorting

@@ -471,9 +471,9 @@ const DateScoreBoard = () => {
             variant={isMobile ? "subtitle1" : "h6"}
             sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
           >
-            NBA Scoreboard
+            NBA Box Scores
           </Typography>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
+          {/* <Box sx={{ display: "flex", alignItems: "center" }}>
             <ConnectionIndicator connected={isConnected} />
             {lastUpdateTime && (
               <Typography
@@ -491,7 +491,7 @@ const DateScoreBoard = () => {
                 })}
               </Typography>
             )}
-          </Box>
+          </Box> */}
         </Box>
 
         {/* DatePicker */}
