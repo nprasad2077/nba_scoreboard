@@ -1,10 +1,11 @@
 import asyncio
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Set, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from nba_api.live.nba.endpoints import scoreboard, boxscore
+from nba_api.stats.endpoints import leaguegamefinder
 import json
 import logging
 from dateutil import parser
@@ -26,6 +27,7 @@ class GameStateManager:
     and updates on each call. This allows going “backwards” in period or
     status if the data feed changes unexpectedly.
     """
+
     def __init__(self):
         self.game_states = {}
         self._lock = asyncio.Lock()
@@ -320,7 +322,9 @@ async def fetch_and_broadcast_updates():
                     period = game_dict.get("period", 0)
                     clock = game_dict.get("gameClock", "")
                     # Fire off an async update (no need to block one by one if we wanted concurrency)
-                    await game_state_manager.update_game_state(game_id, period, clock, status)
+                    await game_state_manager.update_game_state(
+                        game_id, period, clock, status
+                    )
 
                 # Now format data for broadcast
                 formatted_data = format_game_data(games_data)
@@ -363,7 +367,9 @@ def get_box_score(game_id: str) -> GameBoxScore:
                         oncourt=player.get("oncourt", False),
                         jerseyNum=player.get("jerseyNum", ""),
                         status=player.get("status", ""),
-                        statistics=PlayerStatistics(**(player.get("statistics", {}) or {})),
+                        statistics=PlayerStatistics(
+                            **(player.get("statistics", {}) or {})
+                        ),
                     )
                 )
 
@@ -379,7 +385,9 @@ def get_box_score(game_id: str) -> GameBoxScore:
                         oncourt=player.get("oncourt", False),
                         jerseyNum=player.get("jerseyNum", ""),
                         status=player.get("status", ""),
-                        statistics=PlayerStatistics(**(player.get("statistics", {}) or {})),
+                        statistics=PlayerStatistics(
+                            **(player.get("statistics", {}) or {})
+                        ),
                     )
                 )
 
@@ -440,6 +448,67 @@ async def read_box_score(game_id: str):
     return get_box_score(game_id)
 
 
+@app.get("/scoreboard/past")
+async def get_past_scoreboard(date: Optional[str] = Query(None)):
+    """
+    Return scoreboard data (final scores) for a given past date (in MM/DD/YYYY or YYYY-MM-DD).
+    Defaults to yesterday if no date is provided.
+    """
+    # 1) Determine which date to use
+    if date is None:
+        # Default: Yesterday in MM/DD/YYYY
+        date_str = (datetime.now() - timedelta(days=1)).strftime("%m/%d/%Y")
+    else:
+        # Attempt to parse the incoming date
+        # Allow either 'YYYY-MM-DD' or 'MM/DD/YYYY' if you wish
+        try:
+            # Try parsing as YYYY-MM-DD first
+            dt_obj = datetime.strptime(date, "%Y-%m-%d")
+            date_str = dt_obj.strftime("%m/%d/%Y")
+        except ValueError:
+            # If that fails, assume date might already be in MM/DD/YYYY
+            # or handle additional formats as needed
+            date_str = date
+
+    # 2) Fetch all NBA games for that date
+    df = leaguegamefinder.LeagueGameFinder(
+        date_from_nullable=date_str,
+        date_to_nullable=date_str,
+        league_id_nullable="00",  # '00' => NBA
+    ).get_data_frames()[0]
+
+    # 3) Group by GAME_ID to pair up home & away teams
+    grouped = df.groupby("GAME_ID")
+    games_json_list = []
+
+    for game_id, group_df in grouped:
+        # Identify away vs. home by the 'MATCHUP' column
+        away_row = group_df[group_df["MATCHUP"].str.contains("@")]
+        home_row = group_df[group_df["MATCHUP"].str.contains("vs.")]
+
+        # Check we have exactly one away row and one home row
+        if len(away_row) != 1 or len(home_row) != 1:
+            continue
+
+        away_row = away_row.iloc[0]
+        home_row = home_row.iloc[0]
+
+        # Build scoreboard-like JSON
+        scoreboard_item = {
+            "away_team": away_row["TEAM_NAME"],
+            "away_tricode": away_row["TEAM_ABBREVIATION"],
+            "score": f"{away_row['PTS']} - {home_row['PTS']}",
+            "home_team": home_row["TEAM_NAME"],
+            "home_tricode": home_row["TEAM_ABBREVIATION"],
+            "time": "Final",  # Past games => assume final
+            "gameId": str(game_id),
+        }
+
+        games_json_list.append(scoreboard_item)
+
+    return games_json_list
+
+
 @app.on_event("startup")
 async def startup_event():
     """
@@ -451,4 +520,5 @@ async def startup_event():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

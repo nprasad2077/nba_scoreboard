@@ -8,6 +8,12 @@ from rich.table import Table
 from rich.live import Live
 from rich import box
 import sys
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+backend_url = os.getenv('WS_URL')
 
 # Configure logging
 logging.basicConfig(
@@ -20,7 +26,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 class NBAScoreboardClient:
-    def __init__(self, uri="ws://192.168.1.71:8000/ws"):
+    def __init__(self, uri=backend_url):
         self.uri = uri
         self.games = []
         self.last_update = None

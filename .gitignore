@@ -267,6 +267,7 @@ NBAScoreboard/dist/
 # Testing
 NBAScoreboard/coverage/
 NBAScoreboard/.nyc_output/
+NBAScoreboard/docs/test/
 
 # Misc
 NBAScoreboard/.DS_Store

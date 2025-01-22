@@ -11,7 +11,7 @@ const wsConnectFailRate = new Rate('ws_connect_failures');
 export const options = {
   stages: [
     { duration: '30s', target: 100 },  // Ramp up to 100 users
-    { duration: '2m', target: 100 },  // Stay at 50 users
+    { duration: '2m', target: 100 },  // Stay at 100 users
     { duration: '30s', target: 0 },   // Ramp down
   ],
   thresholds: {

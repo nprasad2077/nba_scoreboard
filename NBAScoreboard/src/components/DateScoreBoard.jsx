@@ -1,4 +1,4 @@
-// ScoreBoard.jsx
+// DateScoreBoard.jsx
 import React, { useState, useEffect } from "react";
 import BoxScore from "./BoxScore";
 import ConnectionIndicator from "./ConnectionIndicator";
@@ -300,9 +300,9 @@ const GameCard = ({ game, onBoxScoreClick }) => {
 };
 
 /**
- * Main scoreboard component
+ * Main DateScoreBoard component
  */
-const Scoreboard = () => {
+const DateScoreBoard = () => {
   const isMobile = useMediaQuery("(max-width:600px)");
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState(null);
@@ -319,90 +319,41 @@ const Scoreboard = () => {
    * On mount, establish a WebSocket connection to get live updates.
    */
   useEffect(() => {
-    let ws = null;
-    let reconnectTimeout = null;
-    let reconnectAttempts = 0; // Track number of attempts
-    const ws_url = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws"
+    let pollingInterval = null;
+    const api_url =
+      import.meta.env.VITE_SCORE_URL || "http://localhost:8000/scoreboard/past";
 
-    const connectWebSocket = () => {
-      // Clear any existing timeout
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-
-      // Create new WebSocket connection
+    const fetchScoreData = async () => {
       try {
-        console.log(ws_url)
-        ws = new WebSocket(ws_url);
-
-        ws.onopen = () => {
-          console.log("Connected to NBA Stats WebSocket");
-          setIsConnected(true);
-          reconnectAttempts = 0; // Reset attempts counter on successful connection
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const gamesData = JSON.parse(event.data);
-            setGames(gamesData);
-            setLastUpdateTime(new Date());
-          } catch (error) {
-            console.error("Error parsing WebSocket message:", error);
-          }
-        };
-
-        ws.onerror = (error) => {
-          console.log(
-            `WebSocket error (attempt ${reconnectAttempts + 1}):`,
-            error
-          );
-          setIsConnected(false);
-        };
-
-        ws.onclose = (event) => {
-          console.log(
-            `WebSocket closed (attempt ${reconnectAttempts + 1}):`,
-            event.code,
-            event.reason
-          );
-          setIsConnected(false);
-
-          // Increment attempts counter
-          reconnectAttempts++;
-
-          // Schedule reconnection with exponential backoff
-          const backoffTime = Math.min(
-            1000 * Math.pow(2, reconnectAttempts),
-            10000
-          );
-          console.log(`Reconnecting in ${backoffTime}ms...`);
-
-          reconnectTimeout = setTimeout(() => {
-            console.log("Attempting to reconnect...");
-            connectWebSocket();
-          }, backoffTime);
-        };
+        const response = await fetch(api_url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const gamesData = await response.json();
+        setGames(gamesData);
+        setLastUpdateTime(new Date());
+        setIsConnected(true); // Indicate successful connection
       } catch (error) {
-        console.error("Error creating WebSocket:", error);
-        // If we can't even create the WebSocket, try again after delay
-        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+        console.error("Error fetching score data:", error);
+        setIsConnected(false);
       }
     };
 
-    // Initial connection attempt after a short delay
-    // This gives the backend server time to start up
-    reconnectTimeout = setTimeout(() => {
-      console.log("Making initial connection attempt...");
-      connectWebSocket();
-    }, 5);
+    // Initial fetch
+    fetchScoreData();
+
+    // Optional: Set up polling if you still want periodic updates
+    // Uncomment the following lines if you want polling
+    /*
+    pollingInterval = setInterval(() => {
+      fetchScoreData();
+    }, 30000); // Adjust polling interval as needed (currently 30 seconds)
+    */
 
     // Cleanup function
     return () => {
-      if (ws) {
-        ws.close();
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
       }
     };
   }, []);
@@ -655,4 +606,4 @@ const Scoreboard = () => {
   );
 };
 
-export default Scoreboard;
+export default DateScoreBoard;
