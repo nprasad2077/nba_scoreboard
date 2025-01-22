@@ -20,6 +20,16 @@ load_dotenv()
 
 from src.models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
+# Add custom headers to the NBA API requests
+custom_headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept': 'application/json',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Connection': 'keep-alive',
+    'Cache-Control': 'no-cache'
+}
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -506,7 +516,8 @@ async def get_past_scoreboard(date: Optional[str] = Query(None)):
                 date_from_nullable=date_str,
                 date_to_nullable=date_str,
                 league_id_nullable="00",  # NBA
-                timeout=30,  # 30 second timeout
+                headers=custom_headers,
+                timeout=60,  # 30 second timeout
             )
         except Exception as api_error:
             error_msg = f"NBA API connection error: {str(api_error)}"
