@@ -16,16 +16,6 @@ from fastapi.responses import RedirectResponse
 from fastapi import status
 
 
-from nba_api.stats.library.http import NBAStatsHTTP
-
-# Set a custom User-Agent to mimic a browser
-NBAStatsHTTP._headers["User-Agent"] = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/96.0.4664.110 Safari/537.36"
-)
-
-
 load_dotenv()
 
 from src.models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
