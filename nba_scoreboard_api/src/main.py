@@ -11,8 +11,13 @@ import logging
 from dateutil import parser
 import re
 from fastapi.responses import RedirectResponse
+import os
+from dotenv import load_dotenv
 
-from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
+
+load_dotenv()
+
+from src.models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
