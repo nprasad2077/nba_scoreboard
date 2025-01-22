@@ -1,3 +1,4 @@
+from nba_api.stats.library.parameters import headers
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,14 @@ import os
 from dotenv import load_dotenv
 from fastapi.responses import RedirectResponse
 from fastapi import status
+
+
+headers["User-Agent"] = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/96.0.4664.110 Safari/537.36"
+)
+
 
 load_dotenv()
 
@@ -345,7 +354,7 @@ async def fetch_and_broadcast_updates():
                     logger.info("Broadcast update")
 
             # Sleep 0.1 seconds for faster updates
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(2)
 
         except Exception as e:
             logger.error(f"Error in update loop: {e}")
