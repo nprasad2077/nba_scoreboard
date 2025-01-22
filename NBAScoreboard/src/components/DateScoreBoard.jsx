@@ -1,4 +1,4 @@
-// ScoreBoard.jsx
+// DateScoreBoard.jsx
 import React, { useState, useEffect } from "react";
 import BoxScore from "./BoxScore";
 import ConnectionIndicator from "./ConnectionIndicator";
@@ -15,6 +15,11 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
+import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
 
 // Import all logos
 import ATL from "../assets/nba_logos/ATL.svg";
@@ -300,19 +305,74 @@ const GameCard = ({ game, onBoxScoreClick }) => {
 };
 
 /**
- * Main scoreboard component
+ * Main DateScoreBoard component
  */
-const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
+const DateScoreBoard = () => {
   const isMobile = useMediaQuery("(max-width:600px)");
+  const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
+
+  // Add state for selected date, default to yesterday
+  const [selectedDate, setSelectedDate] = useState(dayjs().subtract(1, "day"));
+
+  // Track the last time we received an update with new information (for display only)
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
+
+  // Connection Indicator
+  const [isConnected, setIsConnected] = useState(false);
+
+  /**
+   * On mount, establish a WebSocket connection to get live updates.
+   */
+  useEffect(() => {
+    let pollingInterval = null;
+    const base_url =
+      import.meta.env.VITE_SCORE_URL || "http://192.168.1.71:8000/scoreboard/past";
+
+    const fetchScoreData = async () => {
+      try {
+        // Format the date as YYYY-MM-DD for the API
+        const formattedDate = selectedDate.format("YYYY-MM-DD");
+        const api_url = `${base_url}${
+          formattedDate !== dayjs().subtract(1, "day").format("YYYY-MM-DD")
+            ? `?date=${formattedDate}`
+            : ""
+        }`;
+
+        const response = await fetch(api_url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const gamesData = await response.json();
+        setGames(gamesData);
+        setLastUpdateTime(new Date());
+        setIsConnected(true);
+      } catch (error) {
+        console.error("Error fetching score data:", error);
+        setIsConnected(false);
+      }
+    };
+
+    fetchScoreData();
+
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [selectedDate]); // Add selectedDate as a dependency
+
+  // Date change handler
+  const handleDateChange = (newDate) => {
+    setSelectedDate(newDate);
+  };
 
   /**
    * Helper function to parse period and time for sorting
    * so we can list in-progress games first, etc.
    */
-
   const parseGameTime = (time) => {
     // "Start: 7:30 PM"
     if (time.startsWith("Start:"))
@@ -391,39 +451,69 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: "column",
+          gap: 2,
           mb: isMobile ? 2 : 3,
-          backgroundColor: "rgba(0, 0, 0, 0.2)",
-          borderRadius: 1,
-          padding: isMobile ? "6px 12px" : "8px 16px",
         }}
       >
-        <Typography
-          variant={isMobile ? "subtitle1" : "h6"}
-          sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
+        {/* Title and Connection Status */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.2)",
+            borderRadius: 1,
+            padding: isMobile ? "6px 12px" : "8px 16px",
+          }}
         >
-          NBA Scoreboard
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <ConnectionIndicator connected={isConnected} />
-          {lastUpdateTime && (
-            <Typography
-              variant="caption"
-              sx={{
-                opacity: 0.7,
-                fontSize: isMobile ? "0.7rem" : "0.75rem",
-              }}
-            >
-              Last update:{" "}
-              {lastUpdateTime.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              })}
-            </Typography>
-          )}
+          <Typography
+            variant={isMobile ? "subtitle1" : "h6"}
+            sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
+          >
+            NBA Box Scores
+          </Typography>
+          {/* <Box sx={{ display: "flex", alignItems: "center" }}>
+            <ConnectionIndicator connected={isConnected} />
+            {lastUpdateTime && (
+              <Typography
+                variant="caption"
+                sx={{
+                  opacity: 0.7,
+                  fontSize: isMobile ? "0.7rem" : "0.75rem",
+                }}
+              >
+                Last update:{" "}
+                {lastUpdateTime.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </Typography>
+            )}
+          </Box> */}
         </Box>
+
+        {/* DatePicker */}
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DatePicker
+            label="Select Date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            sx={{
+              bgcolor: "background.paper",
+              borderRadius: 1,
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": {
+                  borderColor: "rgba(255, 255, 255, 0.23)",
+                },
+                "&:hover fieldset": {
+                  borderColor: "rgba(255, 255, 255, 0.4)",
+                },
+              },
+            }}
+          />
+        </LocalizationProvider>
       </Box>
 
       {/* Live Games Section */}
@@ -560,4 +650,4 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
   );
 };
 
-export default Scoreboard;
+export default DateScoreBoard;

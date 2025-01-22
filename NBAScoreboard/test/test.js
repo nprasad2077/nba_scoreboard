@@ -1,6 +1,8 @@
 import WebSocket from 'ws';
 
-const ws = new WebSocket('ws://localhost:8000/ws');
+const WS_URL = "ws://localhost:8000/ws"
+
+const ws = new WebSocket(WS_URL);
 
 ws.on('open', function open() {
     console.log('Connected to NBA Scores WebSocket');
