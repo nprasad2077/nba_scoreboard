@@ -322,7 +322,7 @@ const Scoreboard = () => {
     let ws = null;
     let reconnectTimeout = null;
     let reconnectAttempts = 0; // Track number of attempts
-    const ws_url = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws"
+    const ws_url = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
 
     const connectWebSocket = () => {
       // Clear any existing timeout
@@ -332,7 +332,7 @@ const Scoreboard = () => {
 
       // Create new WebSocket connection
       try {
-        console.log(ws_url)
+        console.log(ws_url);
         ws = new WebSocket(ws_url);
 
         ws.onopen = () => {
@@ -480,6 +480,9 @@ const Scoreboard = () => {
       sx={{
         py: isMobile ? 2 : 4,
         px: isMobile ? 1 : 2,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       {/* Header */}
