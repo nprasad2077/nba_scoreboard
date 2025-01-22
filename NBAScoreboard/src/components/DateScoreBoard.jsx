@@ -329,7 +329,7 @@ const DateScoreBoard = () => {
   useEffect(() => {
     let pollingInterval = null;
     const base_url =
-      import.meta.env.VITE_SCORE_URL || "http://localhost:8000/scoreboard/past";
+      import.meta.env.VITE_SCORE_URL || "http://192.168.1.71:8000/scoreboard/past";
 
     const fetchScoreData = async () => {
       try {
