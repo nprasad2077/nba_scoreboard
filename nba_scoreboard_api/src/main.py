@@ -10,6 +10,7 @@ import json
 import logging
 from dateutil import parser
 import re
+from fastapi.responses import RedirectResponse
 
 from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
@@ -414,6 +415,17 @@ def get_box_score(game_id: str) -> GameBoxScore:
     except Exception as e:
         logger.error(f"Error fetching box score: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/docs")
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
 
 @app.websocket("/ws")
