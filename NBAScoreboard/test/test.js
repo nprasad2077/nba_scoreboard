@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 
-const WS_URL = "ws://h840kckc8c8swg0cos4cs4g0.143.198.70.30.sslip.io/ws"
+const WS_URL = "ws://localhost:8000/ws"
 
 const ws = new WebSocket(WS_URL);
 
