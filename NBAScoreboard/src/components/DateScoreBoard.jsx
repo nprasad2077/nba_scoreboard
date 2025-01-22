@@ -229,7 +229,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
       // Only call onBoxScoreClick if the game has started (i.e., isNotStarted === false). Prevents call for boxscore data if game has not started.
       onClick={() => {
         if (!isNotStarted) {
-          onBoxScoreClick(game.gameId);
+          onBoxScoreClick(game);
         }
       }}
       sx={{
@@ -310,7 +310,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
 const DateScoreBoard = () => {
   const isMobile = useMediaQuery("(max-width:600px)");
   const [games, setGames] = useState([]);
-  const [selectedGameId, setSelectedGameId] = useState(null);
+  const [selectedGame, setSelectedGame] = useState(null);
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
 
@@ -431,8 +431,8 @@ const DateScoreBoard = () => {
    * (This is only called if the game has started, because
    *  we prevent the click in <GameCard> for not-started games.)
    */
-  const handleBoxScoreClick = (gameId) => {
-    setSelectedGameId(gameId);
+  const handleBoxScoreClick = (game) => {
+    setSelectedGame(game);
     setBoxScoreOpen(true);
   };
 
@@ -619,11 +619,11 @@ const DateScoreBoard = () => {
        * prevents the click if `game.time` starts with "Start:" or "0Q".
        */}
       <BoxScore
-        gameId={selectedGameId}
+        game={selectedGame}
         open={boxScoreOpen}
         onClose={() => {
           setBoxScoreOpen(false);
-          setSelectedGameId(null);
+          setSelectedGame(null);
         }}
       />
 
