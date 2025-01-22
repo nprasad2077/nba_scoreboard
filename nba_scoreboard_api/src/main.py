@@ -10,10 +10,10 @@ import json
 import logging
 from dateutil import parser
 import re
-from fastapi.responses import RedirectResponse
 import os
 from dotenv import load_dotenv
-
+from fastapi.responses import RedirectResponse
+from fastapi import status
 
 load_dotenv()
 
@@ -422,10 +422,9 @@ def get_box_score(game_id: str) -> GameBoxScore:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-@app.get("/")
+@app.get("/", response_class=RedirectResponse, status_code=status.HTTP_302_FOUND)
 async def root():
-    return RedirectResponse(url="/docs")
+    return "/docs"
 
 # Health check endpoint
 @app.get("/health")
@@ -474,7 +473,7 @@ async def get_past_scoreboard(date: Optional[str] = Query(None)):
     # 1) Determine which date to use
     if date is None:
         # Default: Yesterday in MM/DD/YYYY
-        date_str = (datetime.now() - timedelta(days=1)).strftime("%m/%d/%Y")
+        date_str = (datetime.now(pytz.UTC) - timedelta(days=1)).strftime("%m/%d/%Y")
     else:
         # Attempt to parse the incoming date
         # Allow either 'YYYY-MM-DD' or 'MM/DD/YYYY' if you wish
@@ -488,6 +487,7 @@ async def get_past_scoreboard(date: Optional[str] = Query(None)):
             date_str = date
 
     # 2) Fetch all NBA games for that date
+    logger.info(f"Fetching games for date: {date_str}")
     df = leaguegamefinder.LeagueGameFinder(
         date_from_nullable=date_str,
         date_to_nullable=date_str,
@@ -539,5 +539,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
-
-    print(f"Starting uvicorn server")
