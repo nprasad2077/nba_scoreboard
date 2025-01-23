@@ -1,4 +1,4 @@
-version: "3.8"
+version: '3.8'
 
 services:
   backend:
@@ -16,20 +16,19 @@ services:
     dns:
       - 8.8.8.8
       - 8.8.4.4
-    networks:
-      - coolify-network # Add this network
     extra_hosts:
       - "stats.nba.com:23.56.116.63"
+    networks:
+      po0ww8c808co0k8skc8ooc4k: null
     labels:
+      - coolify.managed=true
       - traefik.enable=true
-      - traefik.docker.network=coolify-network
-      - "traefik.http.routers.backend.rule=Host(`h840kckc8c8swg0cos4cs4g0.143.198.70.30.sslip.io`)"
-      - traefik.http.services.backend.loadbalancer.server.port=8000
-      - traefik.http.middlewares.backend-headers.headers.customrequestheaders.User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36
-      - traefik.http.middlewares.backend-headers.headers.customrequestheaders.Accept=application/json
-      - traefik.http.middlewares.backend-headers.headers.customrequestheaders.Accept-Language=en-US,en;q=0.9
-      - traefik.http.middlewares.backend-headers.headers.customrequestheaders.Origin=https://stats.nba.com
-      - traefik.http.middlewares.backend-headers.headers.customrequestheaders.Referer=https://stats.nba.com
+      - traefik.http.middlewares.gzip.compress=true
+      - traefik.http.routers.http-0-po0ww8c808co0k8skc8ooc4k-backend.entryPoints=http
+      - traefik.http.routers.http-0-po0ww8c808co0k8skc8ooc4k-backend.middlewares=gzip
+      - 'traefik.http.routers.http-0-po0ww8c808co0k8skc8ooc4k-backend.rule=Host(`h840kckc8c8swg0cos4cs4g0.143.198.70.30.sslip.io`) && PathPrefix(`/`)'
+      - 'traefik.http.middlewares.nba-headers.headers.customrequestheaders.User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      - 'traefik.http.middlewares.nba-headers.headers.customrequestheaders.Accept=application/json'
 
   frontend:
     build:
@@ -40,8 +39,10 @@ services:
       - "8118:80"
     depends_on:
       - backend
+    networks:
+      po0ww8c808co0k8skc8ooc4k: null
 
 networks:
-  coolify-network:
+  po0ww8c808co0k8skc8ooc4k:
+    name: po0ww8c808co0k8skc8ooc4k
     external: true
-    name: coolify-proxy-network
