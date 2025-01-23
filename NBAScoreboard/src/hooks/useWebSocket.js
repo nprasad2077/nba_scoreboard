@@ -11,6 +11,8 @@ const useWebSocket = () => {
     let reconnectAttempts = 0;
     const ws_url = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
 
+    console.log(ws_url)
+
     const connectWebSocket = () => {
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
