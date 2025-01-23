@@ -359,7 +359,7 @@ async def fetch_and_broadcast_updates():
                     logger.info("Broadcast update")
 
             # Sleep 0.1 seconds for faster updates
-            await asyncio.sleep(2)
+            await asyncio.sleep(0.5)
 
         except Exception as e:
             logger.error(f"Error in update loop: {e}")
