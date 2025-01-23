@@ -491,9 +491,10 @@ async def get_past_scoreboard(date: Optional[str] = Query(None)):
     try:
         # 1. Date handling with timezone awareness
         if date is None:
-            # Default to yesterday, using UTC
-            date_str = (datetime.now(pytz.UTC) - timedelta(days=1)).strftime("%m/%d/%Y")
-            logger.info(f"No date provided, using yesterday: {date_str}")
+            # Default to yesterday using Eastern TZ
+            eastern_tz = pytz.timezone('America/New_York')
+            date_str = (datetime.now(eastern_tz) - timedelta(days=1)).strftime("%m/%d/%Y")
+            logger.info(f"No date provided, using yesterday in Eastern Time: {date_str}")
         else:
             # Parse provided date
             try:
