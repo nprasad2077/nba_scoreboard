@@ -1,19 +1,35 @@
-# nba_scoreboard_api/Dockerfile
+# nba_scoreboard_api/Dockerfile.prod 
 FROM python:3.9-slim
 
 WORKDIR /app
 
-# Copy requirements file
-COPY requirements.txt .
+# Install system dependencies for DNS tools
+RUN apt-get update && apt-get install -y \
+    dnsutils \
+    iputils-ping \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Copy requirements and install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Copy application code
 COPY . .
 
-# Expose the port the app runs on
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV MODULE_NAME="src.main"
+ENV VARIABLE_NAME="app"
+ENV PORT=8000
+
+# Expose port 8000
 EXPOSE 8000
 
-# Command to run the application
-CMD ["python", "src/main.py"]
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Use uvicorn in a production way
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

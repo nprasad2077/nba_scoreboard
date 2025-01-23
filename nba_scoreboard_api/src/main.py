@@ -12,7 +12,7 @@ from dateutil import parser
 import re
 import os
 from dotenv import load_dotenv
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi import status
 
 
@@ -436,15 +436,15 @@ def get_box_score(game_id: str) -> GameBoxScore:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Root endpoint
 @app.get("/", response_class=RedirectResponse, status_code=status.HTTP_302_FOUND)
 async def root():
     return "/docs"
 
-
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
 @app.websocket("/ws")
@@ -604,8 +604,22 @@ async def startup_event():
     """
     asyncio.create_task(fetch_and_broadcast_updates())
 
+# Custom error handlers
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": "The requested resource was not found"}
+    )
+
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(
+        "src.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,
+        log_level="info",
+        access_log=True
+    )
