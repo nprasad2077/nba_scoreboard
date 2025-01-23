@@ -227,6 +227,8 @@ nba_scoreboard_api/env/
 nba_scoreboard_api/venv/
 nba_scoreboard_api/ENV/
 
+nba_scoreboard_api/test/test_remote_endpoint.py
+
 # mkdocs documentation
 /site
 
