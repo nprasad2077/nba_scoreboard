@@ -10,13 +10,25 @@ services:
     ports:
       - "8888:8000"
     environment:
-      # If your code uses environment variables, define them here.
-      # For example:
-      # HOST=0.0.0.0
-      # PORT=8000
-      # ...
       - HOST=0.0.0.0
       - PORT=8000
+      - NBA_API_TIMEOUT=120
+      - NBA_API_RETRIES=3
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "stats.nba.com:23.56.116.63"
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.gzip.compress=true
+      - "traefik.http.middlewares.nba-headers.headers.customrequestheaders.User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      - "traefik.http.middlewares.nba-headers.headers.customrequestheaders.Accept=application/json"
+      - "traefik.http.middlewares.nba-headers.headers.customrequestheaders.Accept-Language=en-US,en;q=0.9"
+      - "traefik.http.middlewares.nba-headers.headers.customrequestheaders.Origin=https://stats.nba.com"
+      - "traefik.http.middlewares.nba-headers.headers.customrequestheaders.Referer=https://stats.nba.com"
+      - "traefik.http.middlewares.nba-timeout.forwardauth.timeout=120"
+      - "traefik.http.routers.backend.middlewares=gzip,nba-headers,nba-timeout"
 
   frontend:
     build:
@@ -24,8 +36,6 @@ services:
       dockerfile: Dockerfile.prod
     container_name: "nba-scoreboard-frontend"
     ports:
-      - "80:80"
-    # The React container has an Nginx reverse proxy configured via nginx.conf
-    # to route /api -> http://backend:8000
+      - "8118:80"
     depends_on:
       - backend

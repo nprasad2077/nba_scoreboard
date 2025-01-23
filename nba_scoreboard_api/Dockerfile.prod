@@ -2,12 +2,34 @@
 FROM python:3.9-slim
 
 WORKDIR /app
+
+# Install system dependencies for DNS tools
+RUN apt-get update && apt-get install -y \
+    dnsutils \
+    iputils-ping \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY . .
+
+# Copy custom CA certificates if needed
+COPY certs/* /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Expose port 8000
 EXPOSE 8000
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Use uvicorn in a production-ish way
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
