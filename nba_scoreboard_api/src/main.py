@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Set, Optional
+from typing import List, Dict, Set, Optional, Any
 from datetime import datetime, timedelta
 import pytz
 from nba_api.live.nba.endpoints import scoreboard, boxscore
@@ -10,6 +10,7 @@ import json
 import logging
 from dateutil import parser
 import re
+from collections import defaultdict
 
 from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
@@ -86,6 +87,99 @@ class GameStateManager:
 
 # Create a global instance
 game_state_manager = GameStateManager()
+
+class PlayByPlayConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, Set[WebSocket]] = defaultdict(set)
+        self.last_data: Dict[str, Any] = {}
+        self.tasks: Dict[str, asyncio.Task] = {}
+        self._lock = asyncio.Lock()
+
+    async def connect(self, websocket: WebSocket, game_id: str):
+        """Accepts the connection and ensures a background task is running for this game."""
+        await websocket.accept()
+        async with self._lock:
+            self.active_connections[game_id].add(websocket)
+            # If there's no background task for this game, create one
+            if game_id not in self.tasks:
+                self.tasks[game_id] = asyncio.create_task(self._poll_playbyplay(game_id))
+
+    async def disconnect(self, websocket: WebSocket, game_id: str):
+        """Removes the connection; cancels background if no clients remain."""
+        async with self._lock:
+            if websocket in self.active_connections[game_id]:
+                self.active_connections[game_id].remove(websocket)
+            # If no connections remain for this game, cancel its background poll
+            if not self.active_connections[game_id]:
+                if game_id in self.tasks:
+                    self.tasks[game_id].cancel()
+                    del self.tasks[game_id]
+                # Cleanup from memory
+                if game_id in self.last_data:
+                    del self.last_data[game_id]
+                del self.active_connections[game_id]
+
+    async def broadcast(self, game_id: str, data: Any):
+        """
+        Broadcast new play-by-play data to all active connections for the given game_id.
+        Only sends if we have connected websockets.
+        """
+        if not self.active_connections[game_id]:
+            return
+
+        dead_connections = set()
+        for connection in self.active_connections[game_id]:
+            try:
+                await connection.send_json(data)
+            except WebSocketDisconnect:
+                dead_connections.add(connection)
+            except Exception as e:
+                logger.error(f"[PlayByPlay] Error broadcasting to client: {e}")
+                dead_connections.add(connection)
+
+        # Cleanup closed websockets
+        for dc in dead_connections:
+            self.active_connections[game_id].remove(dc)
+
+    async def _poll_playbyplay(self, game_id: str):
+        """
+        Background task that polls the nba_api's play-by-play endpoint
+        for a specific game_id every ~0.2s, checks for changes, and broadcasts.
+        """
+        from nba_api.live.nba.endpoints import playbyplay  # Typically near top, but ok here
+
+        logger.info(f"Starting PlayByPlay polling for {game_id}")
+        while True:
+            try:
+                # 1) Query the live play-by-play feed
+                #    E.g. from docs: p = playbyplay.PlayByPlay(game_id)
+                #    Then do .get_dict() or .plays.get_dict(), etc.
+                p = playbyplay.PlayByPlay(game_id)
+                if not p:
+                    await asyncio.sleep(0.2)
+                    continue
+
+                current_data = p.get_dict()  # or p.games.get_dict(), p.plays.get_dict(), etc.
+
+                # 2) Compare to last_data for changes
+                last = self.last_data.get(game_id)
+                if not last or (last != current_data):
+                    self.last_data[game_id] = current_data
+                    # broadcast to all connections for this game
+                    await self.broadcast(game_id, current_data)
+
+                # 3) Sleep
+                await asyncio.sleep(0.2)
+
+            except asyncio.CancelledError:
+                logger.info(f"Canceling PlayByPlay polling for {game_id}")
+                break
+            except Exception as e:
+                logger.error(f"[PlayByPlay] Error in background loop ({game_id}): {e}")
+                # Sleep a bit longer on error
+                await asyncio.sleep(1)
+
+playbyplay_manager = PlayByPlayConnectionManager()
 
 
 def safe_get_score(team_dict: Optional[Dict]) -> str:
@@ -440,6 +534,28 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await manager.disconnect(websocket)
+
+
+@app.websocket("/ws/playbyplay/{game_id}")
+async def playbyplay_ws(websocket: WebSocket, game_id: str):
+    """
+    WebSocket endpoint that streams play-by-play updates for a single game.
+    The client must provide the game_id in the URL.
+    """
+    await playbyplay_manager.connect(websocket, game_id)
+
+    try:
+        # Keep the connection alive by reading from the client
+        while True:
+            # We don't particularly need the data from the client in this flow,
+            # but we do need to keep receiving so the connection isn't closed.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        # If client disconnects, remove them from manager
+        await playbyplay_manager.disconnect(websocket, game_id)
+    except Exception as e:
+        logger.error(f"[PlayByPlay] WebSocket error: {e}")
+        await playbyplay_manager.disconnect(websocket, game_id)
 
 
 @app.get("/boxscore/{game_id}", response_model=GameBoxScore)

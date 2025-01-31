@@ -1,7 +1,11 @@
 // ScoreBoard.jsx
 import React, { useState, useEffect } from "react";
-import BoxScore from "./BoxScore";
 import ConnectionIndicator from "./ConnectionIndicator";
+import GameDetailsDialog from "./GameDetailsDialog";
+// (Optional) If you still use these elsewhere, keep them; otherwise you can remove:
+// import BoxScore from "./BoxScore";
+// import BoxScoreAgGrid from "./BoxScoreAgGrid";
+
 import {
   Box,
   Card,
@@ -87,7 +91,7 @@ const teamLogos = {
  * @returns {string} - Formatted time string in local timezone
  */
 const convertToLocalTime = (timeStr) => {
-  // If it's not a start time (e.g., "1Q 10:44" or "Final"), return as is
+  // If it's not a start time (e.g., "1Q 10:44" or "Final"), return as-is.
   if (!timeStr.startsWith("Start:")) {
     return timeStr;
   }
@@ -108,8 +112,7 @@ const convertToLocalTime = (timeStr) => {
   // Get today's date
   const today = new Date();
 
-  // Create a date object with the game time in EST
-  // Adding 5 hours to convert EST to UTC (EST is UTC-5)
+  // Create a date object with the game time in EST (UTC-5 offset)
   const etDate = new Date(
     Date.UTC(
       today.getFullYear(),
@@ -174,7 +177,6 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
           sx={{
             fontSize: isMobile ? "0.875rem" : "1rem",
             whiteSpace: "nowrap",
-            // Remove maxWidth and overflow handling since we're using conditional rendering
             color: "#ffffff",
           }}
         >
@@ -208,11 +210,11 @@ const GameCard = ({ game, onBoxScoreClick }) => {
   // Convert the game time to local timezone
   const gameStatus = convertToLocalTime(game.time);
 
-  // Check if game is not started yet:
+  // Check if game is not started yet
   const isNotStarted =
     gameStatus.startsWith("Start:") || gameStatus.startsWith("0Q");
 
-  // Hide the score for upcoming games (isNotStarted).
+  // Hide the score for upcoming games
   const awayDisplayScore = isNotStarted ? "" : awayScore;
   const homeDisplayScore = isNotStarted ? "" : homeScore;
 
@@ -221,14 +223,12 @@ const GameCard = ({ game, onBoxScoreClick }) => {
 
   return (
     <Card
-      // Only call onBoxScoreClick if the game has started (i.e., isNotStarted === false). Prevents call for boxscore data if game has not started.
       onClick={() => {
         if (!isNotStarted) {
           onBoxScoreClick(game);
         }
       }}
       sx={{
-        // Change the cursor to indicate non-clickable if game not started
         cursor: isNotStarted ? "default" : "pointer",
         mb: isMobile ? 1 : 2,
         backgroundColor: "rgb(45, 45, 45)",
@@ -271,7 +271,6 @@ const GameCard = ({ game, onBoxScoreClick }) => {
               textAlign: "center",
             }}
           >
-            {/* Game Start Time Display e.g. 7:30 PM */}
             <Typography
               variant="body2"
               sx={{
@@ -300,7 +299,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
 };
 
 /**
- * Main scoreboard component
+ * Main scoreboard component.
  */
 const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
   const isMobile = useMediaQuery("(max-width:600px)");
@@ -308,17 +307,12 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showAllGames, setShowAllGames] = useState(true);
 
-  /**
-   * Helper function to parse period and time for sorting
-   * so we can list in-progress games first, etc.
-   */
-
+  // Helper to parse period/time for sorting
   const parseGameTime = (time) => {
-    // "Start: 7:30 PM"
     if (time.startsWith("Start:"))
       return { period: -1, minutes: 0, seconds: 0 };
 
-    // "1Q 10:44", "OT 5:00", "Final", etc.
+    // e.g. "1Q 10:44", "OT 5:00", "Final", etc.
     const periodMatch = time.match(/(\d+)Q/) || time.match(/(\d+)OT/);
     const timeMatch = time.match(/(\d+):(\d+)/);
 
@@ -329,28 +323,21 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
     return { period, minutes, seconds };
   };
 
-  /**
-   * Sort function for games:
-   * - In-progress (higher period first),
-   * - then scheduled,
-   * - then final, etc.
-   */
+  // Sort function: in-progress first, then scheduled, then final
   const sortGames = (a, b) => {
     const timeA = parseGameTime(a.time);
     const timeB = parseGameTime(b.time);
 
-    // First sort by period (descending)
+    // Higher period = earlier in the list
     if (timeB.period !== timeA.period) return timeB.period - timeA.period;
 
-    // Then sort by time (ascending)
+    // Then by clock time ascending
     const totalSecondsA = timeA.minutes * 60 + timeA.seconds;
     const totalSecondsB = timeB.minutes * 60 + timeB.seconds;
     return totalSecondsA - totalSecondsB;
   };
 
-  /**
-   * Separate games into live, upcoming, and completed categories.
-   */
+  // Separate live, upcoming, completed
   const liveGames = games
     .filter(
       (game) =>
@@ -366,11 +353,7 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
 
   const completedGames = games.filter((game) => game.time === "Final");
 
-  /**
-   * Click handler to show the BoxScore for a selected game.
-   * (This is only called if the game has started, because
-   *  we prevent the click in <GameCard> for not-started games.)
-   */
+  // Click handler for an in-progress or completed game => open modal
   const handleBoxScoreClick = (game) => {
     setSelectedGame(game);
     setBoxScoreOpen(true);
@@ -438,7 +421,7 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
               fontSize: isMobile ? "1rem" : "1.25rem",
             }}
           >
-            {/* Little red dot to indicate live */}
+            {/* Red dot to indicate live */}
             <Box
               component="span"
               sx={{
@@ -469,9 +452,7 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
           <Typography
             variant={isMobile ? "subtitle1" : "h6"}
             gutterBottom
-            sx={{
-              fontSize: isMobile ? "1rem" : "1.25rem",
-            }}
+            sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
           >
             Upcoming Games
           </Typography>
@@ -523,12 +504,13 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
         </Box>
       )}
 
-      {/** Boxscore Modal
-       * BoxScore component still uses the REST endpoint `GET /boxscore/{game_id}`
-       * We won't call it for games that have not started, because <GameCard>
-       * prevents the click if `game.time` starts with "Start:" or "0Q".
-       */}
-      <BoxScore
+      {/* 
+        GameDetailsDialog:
+        - Replaces the old BoxScoreAgGrid modal so that when the user clicks
+          an in-progress or completed game, this tabbed dialog opens,
+          showing Box Score and Play By Play for `selectedGame`.
+      */}
+      <GameDetailsDialog
         game={selectedGame}
         open={boxScoreOpen}
         onClose={() => {
@@ -537,7 +519,7 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
         }}
       />
 
-      {/* Add responsive styling for potential empty state */}
+      {/* If no games are available, show a "No games scheduled" state */}
       {games.length === 0 && (
         <Box
           sx={{
