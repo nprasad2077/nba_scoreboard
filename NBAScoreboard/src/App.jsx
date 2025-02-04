@@ -4,8 +4,8 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
+import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import Scoreboard from "./components/Scoreboard";
 import DateScoreBoard from "./components/DateScoreBoard";
 import NBAPlayerStats from "./components/NBAPlayerStats";
@@ -87,7 +87,7 @@ function App() {
             aria-controls="scoreboard-tabpanel-0"
           />
           <Tab
-            icon={<SportsSoccerIcon />}
+            icon={<ScoreboardIcon />}
             label="Live"
             id="scoreboard-tab-1"
             aria-controls="scoreboard-tabpanel-1"
