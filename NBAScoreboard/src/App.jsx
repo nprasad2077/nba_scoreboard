@@ -5,8 +5,10 @@ import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import Scoreboard from "./components/Scoreboard";
 import DateScoreBoard from "./components/DateScoreBoard";
+import NBAPlayerStats from "./components/NBAPlayerStats";
 import { useState } from "react";
 import useWebSocket from "./hooks/useWebSocket";
 
@@ -21,12 +23,25 @@ const darkTheme = createTheme({
       paper: "#1e1e1e",
     },
   },
+  // Add support for shadcn/ui components
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          // This ensures shadcn/ui components inherit the dark theme
+          '[data-theme="dark"]': {
+            "--background": "214 9% 7%",
+            "--foreground": "210 40% 98%",
+          },
+        },
+      },
+    },
+  },
 });
 
 // Custom TabPanel component to handle content display
 function TabPanel({ children, value, index }) {
   if (value !== index) return null;
-
   return (
     <div
       role="tabpanel"
@@ -77,8 +92,13 @@ function App() {
             id="scoreboard-tab-1"
             aria-controls="scoreboard-tabpanel-1"
           />
+          <Tab
+            icon={<SportsBasketballIcon />}
+            label="NBA Stats"
+            id="scoreboard-tab-2"
+            aria-controls="scoreboard-tabpanel-2"
+          />
         </Tabs>
-
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
           <TabPanel value={currentTab} index={0}>
             <DateScoreBoard />
@@ -89,6 +109,9 @@ function App() {
               isConnected={isConnected}
               lastUpdateTime={lastUpdateTime}
             />
+          </TabPanel>
+          <TabPanel value={currentTab} index={2}>
+            <NBAPlayerStats />
           </TabPanel>
         </Box>
       </Box>
