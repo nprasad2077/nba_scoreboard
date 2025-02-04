@@ -1,16 +1,29 @@
 import asyncio
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
+from contextlib import asynccontextmanager
+from fastapi import (
+    FastAPI,
+    WebSocket,
+    WebSocketDisconnect,
+    HTTPException,
+    Query,
+    Depends,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Set, Optional, Any
 from datetime import datetime, timedelta
 import pytz
 from nba_api.live.nba.endpoints import scoreboard, boxscore
-from nba_api.stats.endpoints import leaguegamefinder
+from nba_api.stats.endpoints import leaguegamefinder, playergamelogs
 import json
 import logging
 from dateutil import parser
 import re
 from collections import defaultdict
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from database import Player, get_db, update_player_database, init_db
+
 
 from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
 
@@ -88,6 +101,7 @@ class GameStateManager:
 # Create a global instance
 game_state_manager = GameStateManager()
 
+
 class PlayByPlayConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, Set[WebSocket]] = defaultdict(set)
@@ -102,7 +116,9 @@ class PlayByPlayConnectionManager:
             self.active_connections[game_id].add(websocket)
             # If there's no background task for this game, create one
             if game_id not in self.tasks:
-                self.tasks[game_id] = asyncio.create_task(self._poll_playbyplay(game_id))
+                self.tasks[game_id] = asyncio.create_task(
+                    self._poll_playbyplay(game_id)
+                )
 
     async def disconnect(self, websocket: WebSocket, game_id: str):
         """Removes the connection; cancels background if no clients remain."""
@@ -146,7 +162,9 @@ class PlayByPlayConnectionManager:
         Background task that polls the nba_api's play-by-play endpoint
         for a specific game_id every ~0.2s, checks for changes, and broadcasts.
         """
-        from nba_api.live.nba.endpoints import playbyplay  # Typically near top, but ok here
+        from nba_api.live.nba.endpoints import (
+            playbyplay,
+        )  # Typically near top, but ok here
 
         logger.info(f"Starting PlayByPlay polling for {game_id}")
         while True:
@@ -159,7 +177,9 @@ class PlayByPlayConnectionManager:
                     await asyncio.sleep(0.2)
                     continue
 
-                current_data = p.get_dict()  # or p.games.get_dict(), p.plays.get_dict(), etc.
+                current_data = (
+                    p.get_dict()
+                )  # or p.games.get_dict(), p.plays.get_dict(), etc.
 
                 # 2) Compare to last_data for changes
                 last = self.last_data.get(game_id)
@@ -179,7 +199,50 @@ class PlayByPlayConnectionManager:
                 # Sleep a bit longer on error
                 await asyncio.sleep(1)
 
+
 playbyplay_manager = PlayByPlayConnectionManager()
+
+
+# Pydantic models for API responses
+class PlayerBase(BaseModel):
+    person_id: int
+    display_name: str
+    team_name: str
+    team_abbreviation: str
+
+    class Config:
+        from_attributes = True  # Previously orm_mode
+
+
+class GameStats(BaseModel):
+    game_date: str
+    matchup: str
+    wl: str
+    min: float  # Changed from str to float
+    pts: int
+    fgm: int
+    fga: int
+    fg_pct: float
+    fg3m: int
+    fg3a: int
+    fg3_pct: float
+    ftm: int
+    fta: int
+    ft_pct: float
+    oreb: int
+    dreb: int
+    reb: int
+    ast: int
+    stl: int
+    blk: int
+    tov: int
+    pf: int
+    plus_minus: int
+
+
+class PlayerStats(BaseModel):
+    player_info: PlayerBase
+    last_10_games: List[GameStats]
 
 
 def safe_get_score(team_dict: Optional[Dict]) -> str:
@@ -346,7 +409,21 @@ def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
     return False
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for database initialization and cleanup."""
+    # Startup: Initialize database and update player data
+    init_db()
+    await update_player_database()
+
+    yield  # Server is running
+
+    # Shutdown: Add any cleanup here if needed
+    pass
+
+
+# Initialize FastAPI app with lifespan handler
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -623,6 +700,77 @@ async def get_past_scoreboard(date: Optional[str] = Query(None)):
         games_json_list.append(scoreboard_item)
 
     return games_json_list
+
+
+@app.get("/players/search/", response_model=List[PlayerBase])
+async def search_players(
+    query: str = Query(..., min_length=2), db: Session = Depends(get_db)
+):
+    """Search for players by name."""
+    search_query = f"%{query}%"
+    players = db.query(Player).filter(Player.display_name.ilike(search_query)).all()
+    return players
+
+
+@app.get("/players/{player_id}/last10", response_model=PlayerStats)
+async def get_player_last_10_games(player_id: int, db: Session = Depends(get_db)):
+    """Get a player's last 10 games statistics."""
+    # Get player info from database
+    player = db.query(Player).filter(Player.person_id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    try:
+        # Get last 10 games stats from NBA API
+        player_games = playergamelogs.PlayerGameLogs(
+            player_id_nullable=player_id,
+            season_nullable="2024-25",
+            season_type_nullable="Regular Season",
+            last_n_games_nullable=10,
+        )
+
+        df_games = player_games.get_data_frames()[0]
+
+        # Convert game stats to list of GameStats objects
+        games_list = []
+        for _, game in df_games.iterrows():
+            game_stats = GameStats(
+                game_date=game["GAME_DATE"],
+                matchup=game["MATCHUP"],
+                wl=game["WL"],
+                min=(
+                    float(game["MIN"]) if game["MIN"] else 0.0
+                ),  # Convert to float with fallback
+                pts=game["PTS"],
+                fgm=game["FGM"],
+                fga=game["FGA"],
+                fg_pct=game["FG_PCT"],
+                fg3m=game["FG3M"],
+                fg3a=game["FG3A"],
+                fg3_pct=game["FG3_PCT"],
+                ftm=game["FTM"],
+                fta=game["FTA"],
+                ft_pct=game["FT_PCT"],
+                oreb=game["OREB"],
+                dreb=game["DREB"],
+                reb=game["REB"],
+                ast=game["AST"],
+                stl=game["STL"],
+                blk=game["BLK"],
+                tov=game["TOV"],
+                pf=game["PF"],
+                plus_minus=game["PLUS_MINUS"],
+            )
+            games_list.append(game_stats)
+
+        # Create response object
+        response = PlayerStats(player_info=player, last_10_games=games_list)
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error fetching game stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.on_event("startup")
