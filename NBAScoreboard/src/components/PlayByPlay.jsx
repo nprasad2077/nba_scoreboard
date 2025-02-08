@@ -18,17 +18,25 @@ const PlayByPlay = ({ gameId }) => {
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const socketRef = useRef(null);
   const isMobile = useMediaQuery("(max-width:600px)");
 
   useEffect(() => {
+    setLoading(true);
+    setInitialLoadComplete(false);
+    setError(null);
+
     if (!gameId) {
       setError("Missing game ID");
       setLoading(false);
       return;
     }
 
-    // Use localhost:8000 specifically for WebSocket connection
+    const minimumLoadingTimer = setTimeout(() => {
+      setInitialLoadComplete(true);
+    }, 300);
+
     const socketUrl = `ws://localhost:8000/ws/playbyplay/${gameId}`;
     console.log("Connecting to:", socketUrl);
 
@@ -38,7 +46,6 @@ const PlayByPlay = ({ gameId }) => {
 
       socket.onopen = () => {
         console.log("PlayByPlay WebSocket connected");
-        setLoading(false);
         setError(null);
       };
 
@@ -47,13 +54,15 @@ const PlayByPlay = ({ gameId }) => {
           const data = JSON.parse(event.data);
           if (data.game?.actions) {
             const sorted = [...data.game.actions].sort(
-              (a, b) => b.actionNumber - a.actionNumber // Reversed the sort order
+              (a, b) => b.actionNumber - a.actionNumber
             );
             setActions(sorted);
           }
+          setLoading(false);
         } catch (err) {
           console.error("Error parsing PBP data:", err);
           setError("Error processing game data");
+          setLoading(false);
         }
       };
 
@@ -71,6 +80,7 @@ const PlayByPlay = ({ gameId }) => {
       };
 
       return () => {
+        clearTimeout(minimumLoadingTimer);
         if (
           socketRef.current &&
           socketRef.current.readyState === WebSocket.OPEN
@@ -85,9 +95,9 @@ const PlayByPlay = ({ gameId }) => {
     }
   }, [gameId]);
 
-  if (loading) {
+  if (loading || !initialLoadComplete) {
     return (
-      <Box sx={{ textAlign: "center", p: 2 }}>
+      <Box sx={{ textAlign: "center", p: 2, height: "100%" }}>
         <CircularProgress />
       </Box>
     );
@@ -95,7 +105,7 @@ const PlayByPlay = ({ gameId }) => {
 
   if (error) {
     return (
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 2, height: "100%" }}>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -103,7 +113,7 @@ const PlayByPlay = ({ gameId }) => {
 
   if (actions.length === 0) {
     return (
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 2, height: "100%" }}>
         <Typography color="white" variant="body2">
           No play-by-play data available.
         </Typography>
@@ -112,12 +122,26 @@ const PlayByPlay = ({ gameId }) => {
   }
 
   return (
-    <Box sx={{ p: isMobile ? 1 : 2 }}>
+    <Box
+      sx={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        px: 6,
+        py:4,
+      }}
+    >
       <TableContainer
         component={Paper}
         sx={{
-          maxHeight: 500,
+          flex: 1,
           backgroundColor: "rgb(45,45,45)",
+          "&::-webkit-scrollbar": {
+            display: "none",
+          },
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
           "& .MuiTableCell-root": {
             borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
           },
@@ -180,7 +204,6 @@ const PlayByPlay = ({ gameId }) => {
   );
 };
 
-// Helper to parse "PT00M08.60S" -> "0:08.6"
 const formatClock = (clockStr) => {
   if (!clockStr?.startsWith("PT")) return clockStr;
   const match = clockStr.match(/PT(\d+)M(\d+(\.\d+)?)S/);

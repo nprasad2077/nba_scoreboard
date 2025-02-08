@@ -21,11 +21,25 @@ import re
 from collections import defaultdict
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
-from database import Player, get_db, update_player_database, init_db
+from database import (
+    Player,
+    get_db,
+    update_player_database,
+    init_db,
+    TeamStanding,
+    update_standings_database,
+)
 
 
-from models import PlayerStatistics, PlayerData, TeamBoxScore, GameBoxScore
+from models import (
+    PlayerStatistics,
+    PlayerData,
+    TeamBoxScore,
+    GameBoxScore,
+    StandingsResponse,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -415,6 +429,7 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize database and update player data
     init_db()
     await update_player_database()
+    await update_standings_database()
 
     yield  # Server is running
 
@@ -771,6 +786,30 @@ async def get_player_last_10_games(player_id: int, db: Session = Depends(get_db)
     except Exception as e:
         logger.error(f"Error fetching game stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/standings/conference/{conference}", response_model=List[StandingsResponse])
+async def get_conference_standings(conference: str, db: Session = Depends(get_db)):
+    """Get standings for a specific conference (East or West)"""
+    standings = (
+        db.query(TeamStanding)
+        .filter(func.lower(TeamStanding.conference) == func.lower(conference))
+        .order_by(TeamStanding.conference_rank)
+        .all()
+    )
+    return standings
+
+
+@app.get("/standings/division/{division}", response_model=List[StandingsResponse])
+async def get_division_standings(division: str, db: Session = Depends(get_db)):
+    """Get standings for a specific division"""
+    standings = (
+        db.query(TeamStanding)
+        .filter(func.lower(TeamStanding.division) == func.lower(division))
+        .order_by(TeamStanding.division_rank)
+        .all()
+    )
+    return standings
 
 
 @app.on_event("startup")

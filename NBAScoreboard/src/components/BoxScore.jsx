@@ -458,7 +458,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
   );
 }
 
-const BoxScore = ({ game, open, onClose }) => {
+const BoxScore = ({ game, open }) => {
   if (!game || !open) {
     return null;
   }
@@ -466,6 +466,10 @@ const BoxScore = ({ game, open, onClose }) => {
   const [boxScore, setBoxScore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  console.log(game)
+  ;
+  
 
   const api_url = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
   const gameId = game.gameId;
@@ -492,78 +496,35 @@ const BoxScore = ({ game, open, onClose }) => {
   }, [gameId]);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xl"
-      fullWidth
-      keepMounted={false}
-      fullScreen={isMobile} // Make dialog fullscreen on mobile
-      PaperProps={{
-        sx: {
-          height: isMobile ? "100vh" : "90vh",
-          backgroundColor: "rgb(30, 30, 30)",
-        },
-      }}
-    >
-      <DialogTitle
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          backgroundColor: "rgb(30, 30, 30)",
-          color: "white",
-          padding: isMobile ? "12px 8px" : "16px 24px",
-          fontSize: isMobile ? "1.1rem" : "1.25rem",
-        }}
-      >
-        Box Score
-        <IconButton
-          onClick={onClose}
-          sx={{
-            color: "white",
-            padding: isMobile ? "6px" : "8px",
-          }}
+    <Box sx={{ width: '100%', py: 4, px: 6}}>
+      {loading ? (
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          height="100%"
         >
-          <Close sx={{ fontSize: isMobile ? "1.25rem" : "1.5rem" }} />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent
-        sx={{
-          backgroundColor: "rgb(30, 30, 30)",
-          padding: isMobile ? "8px 16px" : "16px 32px",
-          overflowX: "auto",
-        }}
-      >
-        {loading ? (
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            height="100%"
-          >
-            <CircularProgress />
-          </Box>
-        ) : error ? (
-          <Typography color="error">{error}</Typography>
-        ) : (
-          boxScore && (
-            <>
-              <TeamBoxScoreTable
-                team={boxScore.away_team}
-                teamName={`${boxScore.away_team.teamCity} ${boxScore.away_team.teamName}`}
-                scoreboardScore={awayScore}
-              />
-              <TeamBoxScoreTable
-                team={boxScore.home_team}
-                teamName={`${boxScore.home_team.teamCity} ${boxScore.home_team.teamName}`}
-                scoreboardScore={homeScore}
-              />
-            </>
-          )
-        )}
-      </DialogContent>
-    </Dialog>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Typography color="error">{error}</Typography>
+      ) : (
+        boxScore && (
+          <>
+            <TeamBoxScoreTable
+              team={boxScore.away_team}
+              teamName={`${boxScore.away_team.teamCity} ${boxScore.away_team.teamName}`}
+              scoreboardScore={awayScore}
+            />
+            <TeamBoxScoreTable
+              team={boxScore.home_team}
+              teamName={`${boxScore.home_team.teamCity} ${boxScore.home_team.teamName}`}
+              scoreboardScore={homeScore}
+            />
+          </>
+        )
+      )}
+    </Box>
   );
 };
 

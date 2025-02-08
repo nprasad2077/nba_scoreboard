@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import ConnectionIndicator from "./ConnectionIndicator";
 import GameDetailsDialog from "./GameDetailsDialog";
+import GameDetailsModal from "./GameDetailsModal";
 // (Optional) If you still use these elsewhere, keep them; otherwise you can remove:
 // import BoxScore from "./BoxScore";
 // import BoxScoreAgGrid from "./BoxScoreAgGrid";
@@ -510,8 +511,8 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
           an in-progress or completed game, this tabbed dialog opens,
           showing Box Score and Play By Play for `selectedGame`.
       */}
-      <GameDetailsDialog
-        game={selectedGame}
+      <GameDetailsModal
+        gameId={selectedGame}
         open={boxScoreOpen}
         onClose={() => {
           setBoxScoreOpen(false);
