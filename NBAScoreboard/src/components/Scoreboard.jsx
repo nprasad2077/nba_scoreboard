@@ -178,7 +178,7 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
           sx={{
             fontSize: isMobile ? "0.875rem" : "1rem",
             whiteSpace: "nowrap",
-            color: "#ffffff",
+            color: "rgba(255, 255, 255, 0.95)",
           }}
         >
           {isMobile ? tricode : teamName}
@@ -186,8 +186,10 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         {score !== "" && (
           <Typography
             variant={isMobile ? "h6" : "h5"}
-            color={isWinner ? "primary" : "text.primary"}
-            sx={{ color: isWinner ? "#64b5f6" : "#ffffff" }}
+            sx={{
+              color: isWinner ? "#64b5f6" : "rgba(255, 255, 255, 0.95)",
+              fontWeight: isWinner ? 600 : 400,
+            }}
           >
             {score}
           </Typography>
@@ -232,13 +234,16 @@ const GameCard = ({ game, onBoxScoreClick }) => {
       sx={{
         cursor: isNotStarted ? "default" : "pointer",
         mb: isMobile ? 1 : 2,
-        backgroundColor: "rgb(45, 45, 45)",
-        boxShadow: "none",
-        transition: "transform 0.2s",
+        backgroundColor: "#262626", // Lighter than background for contrast
+        boxShadow: "0 2px 8px rgba(0,0,0,0.3)", // More pronounced shadow
+        transition: "all 0.2s ease-in-out",
         "&:hover": {
           transform: isNotStarted ? "none" : "scale(1.01)",
+          backgroundColor: "#2d2d2d", // Slightly lighter on hover
         },
         height: isMobile ? "70px" : "80px",
+        border: "1px solid rgba(255, 255, 255, 0.08)", // Subtle border
+        borderRadius: "8px", // Slightly more rounded corners
       }}
     >
       <CardContent
@@ -246,6 +251,9 @@ const GameCard = ({ game, onBoxScoreClick }) => {
           position: "relative",
           p: isMobile ? "12px !important" : "16px !important",
           height: "100%",
+          "&:last-child": {
+            paddingBottom: isMobile ? "12px !important" : "16px !important",
+          },
         }}
       >
         <Stack

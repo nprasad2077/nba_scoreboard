@@ -11,33 +11,9 @@ import DateScoreBoard from "./components/DateScoreBoard";
 import NBAPlayerStats from "./components/NBAPlayerStats";
 import { useState } from "react";
 import useWebSocket from "./hooks/useWebSocket";
+import darkTheme from './styles/theme'
 
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: {
-      main: "#90caf9",
-    },
-    background: {
-      default: "#121212",
-      paper: "#1e1e1e",
-    },
-  },
-  // Add support for shadcn/ui components
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: {
-        body: {
-          // This ensures shadcn/ui components inherit the dark theme
-          '[data-theme="dark"]': {
-            "--background": "214 9% 7%",
-            "--foreground": "210 40% 98%",
-          },
-        },
-      },
-    },
-  },
-});
+
 
 // Custom TabPanel component to handle content display
 function TabPanel({ children, value, index }) {

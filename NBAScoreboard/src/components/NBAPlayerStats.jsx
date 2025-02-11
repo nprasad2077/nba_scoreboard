@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Table,
   TableBody,
@@ -10,11 +10,11 @@ import {
   TextField,
   Autocomplete,
   Typography,
-  Box
-} from '@mui/material';
+  Box,
+} from "@mui/material";
 
 const NBAPlayerStats = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [playerStats, setPlayerStats] = useState(null);
@@ -23,11 +23,13 @@ const NBAPlayerStats = () => {
   const searchPlayers = async (query) => {
     if (query.length >= 2) {
       try {
-        const response = await fetch(`http://localhost:8000/players/search/?query=${query}`);
+        const response = await fetch(
+          `http://localhost:8000/players/search/?query=${query}`
+        );
         const data = await response.json();
         setSearchResults(data);
       } catch (error) {
-        console.error('Error searching players:', error);
+        console.error("Error searching players:", error);
       }
     } else {
       setSearchResults([]);
@@ -37,11 +39,13 @@ const NBAPlayerStats = () => {
   // Fetch player stats when a player is selected
   const fetchPlayerStats = async (playerId) => {
     try {
-      const response = await fetch(`http://localhost:8000/players/${playerId}/last10`);
+      const response = await fetch(
+        `http://localhost:8000/players/${playerId}/last10`
+      );
       const data = await response.json();
       setPlayerStats(data);
     } catch (error) {
-      console.error('Error fetching player stats:', error);
+      console.error("Error fetching player stats:", error);
     }
   };
 
@@ -52,13 +56,22 @@ const NBAPlayerStats = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h5" gutterBottom>
+      <Box
+        sx={{
+          mb: 4,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
+        <Typography variant="h5" sx={{ mb: 4 }} gutterBottom>
           NBA Player Stats
         </Typography>
         <Autocomplete
           options={searchResults}
-          getOptionLabel={(option) => `${option.display_name} - ${option.team_abbreviation}`}
+          getOptionLabel={(option) =>
+            `${option.display_name} - ${option.team_abbreviation}`
+          }
           onInputChange={(event, newInputValue) => {
             setSearchQuery(newInputValue);
             searchPlayers(newInputValue);
@@ -72,9 +85,9 @@ const NBAPlayerStats = () => {
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Search for a player (min. 2 characters)"
+              label="Search for a player"
               variant="outlined"
-              sx={{ width: 300 }}
+              sx={{ width: 600 }}
             />
           )}
         />
@@ -82,8 +95,9 @@ const NBAPlayerStats = () => {
 
       {playerStats && (
         <Box>
-          <Typography variant="h6" gutterBottom>
-            Last 10 Games - {playerStats.player_info.display_name} ({playerStats.player_info.team_abbreviation})
+          <Typography variant="h6" sx={{ mb: 2 }} gutterBottom>
+            Last 10 Games - {playerStats.player_info.display_name} (
+            {playerStats.player_info.team_abbreviation})
           </Typography>
           <TableContainer component={Paper}>
             <Table sx={{ minWidth: 650 }} size="small">
@@ -113,7 +127,11 @@ const NBAPlayerStats = () => {
                   <TableRow key={index}>
                     <TableCell>{formatDate(game.game_date)}</TableCell>
                     <TableCell>{game.matchup}</TableCell>
-                    <TableCell sx={{ color: game.wl === 'W' ? 'success.main' : 'error.main' }}>
+                    <TableCell
+                      sx={{
+                        color: game.wl === "W" ? "success.main" : "error.main",
+                      }}
+                    >
                       {game.wl}
                     </TableCell>
                     <TableCell>{Math.round(game.min)}</TableCell>
@@ -129,8 +147,15 @@ const NBAPlayerStats = () => {
                     <TableCell>{game.stl}</TableCell>
                     <TableCell>{game.blk}</TableCell>
                     <TableCell>{game.tov}</TableCell>
-                    <TableCell sx={{ color: game.plus_minus > 0 ? 'success.main' : 'error.main' }}>
-                      {game.plus_minus > 0 ? `+${game.plus_minus}` : game.plus_minus}
+                    <TableCell
+                      sx={{
+                        color:
+                          game.plus_minus > 0 ? "success.main" : "error.main",
+                      }}
+                    >
+                      {game.plus_minus > 0
+                        ? `+${game.plus_minus}`
+                        : game.plus_minus}
                     </TableCell>
                   </TableRow>
                 ))}
