@@ -222,8 +222,8 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         src={logoSrc}
         alt={`${teamName} logo`}
         sx={{
-          width: isMobile ? 48 : 60,
-          height: isMobile ? 48 : 60,
+          width: isMobile ? 48 : 72,
+          height: isMobile ? 48 : 72,
           objectFit: "contain",
         }}
       />
@@ -237,7 +237,7 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
           variant="body1"
           fontWeight="600"
           sx={{
-            fontSize: isMobile ? "1rem" : "1.25rem",
+            fontSize: isMobile ? "1rem" : "1.5rem",
             whiteSpace: "nowrap",
             color: "rgba(255, 255, 255, 0.95)",
           }}
@@ -305,7 +305,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
           transform: isNotStarted ? "none" : "scale(1.01)",
           backgroundColor: "#2d2d2d", // Slightly lighter on hover
         },
-        height: isMobile ? "105px" : "120px",
+        height: isMobile ? "105px" : "125px",
         border: "1px solid rgba(255, 255, 255, 0.08)", // Subtle border
         borderRadius: "12px", // Slightly more rounded corners
         width: "100%",
