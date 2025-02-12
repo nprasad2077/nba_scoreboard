@@ -29,9 +29,9 @@ const GameDetailsModal = ({ gameId, open, onClose }) => {
   };
 
   const resetTab = () => {
-    onClose()
-    setActiveTab(0)
-  }
+    onClose();
+    setActiveTab(0);
+  };
 
   return (
     <Dialog
@@ -43,18 +43,21 @@ const GameDetailsModal = ({ gameId, open, onClose }) => {
       PaperProps={{
         sx: {
           height: isMobile ? "100vh" : "90vh",
-          backgroundColor: "rgb(30, 30, 30)",
+          backgroundColor: "#101010",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
+          borderRadius: isMobile ? 0 : "12px",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4)",
         },
       }}
     >
       {/* Header */}
       <Box
         sx={{
-          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-          backgroundColor: "rgb(30, 30, 30)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+          backgroundColor: "#101010",
           zIndex: 1,
         }}
       >
@@ -64,17 +67,21 @@ const GameDetailsModal = ({ gameId, open, onClose }) => {
             justifyContent: "space-between",
             alignItems: "center",
             color: "white",
-            padding: isMobile ? "8px" : "12px 24px",
+            padding: isMobile ? "12px 16px" : "16px 24px",
             fontSize: isMobile ? "1.1rem" : "1.25rem",
             minHeight: "auto",
+            fontWeight: 600,
           }}
         >
           Game Details
           <IconButton
             onClick={resetTab}
-            sx={{   
+            sx={{
               color: "white",
-              padding: isMobile ? "6px" : "8px",
+              padding: isMobile ? "8px" : "12px",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
             }}
           >
             <Close sx={{ fontSize: isMobile ? "1.25rem" : "1.5rem" }} />
@@ -86,17 +93,24 @@ const GameDetailsModal = ({ gameId, open, onClose }) => {
           onChange={handleTabChange}
           textColor="inherit"
           sx={{
-            minHeight: "40px",
+            minHeight: "48px",
+            backgroundColor: "#101010",
             "& .MuiTabs-indicator": {
-              backgroundColor: "white",
+              backgroundColor: "#64b5f6",
+              height: "3px",
             },
             "& .MuiTab-root": {
               color: "rgba(255, 255, 255, 0.7)",
               minWidth: "120px",
-              minHeight: "40px",
-              padding: "6px 16px",
+              minHeight: "48px",
+              padding: "12px 24px",
+              textTransform: "none",
+              fontWeight: 600,
               "&.Mui-selected": {
-                color: "white",
+                color: "#64b5f6",
+              },
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.05)",
               },
             },
           }}
@@ -105,14 +119,12 @@ const GameDetailsModal = ({ gameId, open, onClose }) => {
             label="Box Score"
             sx={{
               fontSize: isMobile ? "0.875rem" : "1rem",
-              fontWeight: 500,
             }}
           />
           <Tab
             label="Play by Play"
             sx={{
               fontSize: isMobile ? "0.875rem" : "1rem",
-              fontWeight: 500,
             }}
           />
         </Tabs>
@@ -120,7 +132,7 @@ const GameDetailsModal = ({ gameId, open, onClose }) => {
 
       <DialogContent
         sx={{
-          backgroundColor: "rgb(30, 30, 30)",
+          backgroundColor: "#101010",
           padding: 0,
           flex: 1,
           overflow: "hidden",
@@ -133,10 +145,18 @@ const GameDetailsModal = ({ gameId, open, onClose }) => {
             overflow: "auto",
             p: 0,
             "&::-webkit-scrollbar": {
-              display: "none",
+              width: "8px",
             },
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
+            "&::-webkit-scrollbar-track": {
+              background: "rgba(255, 255, 255, 0.05)",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              background: "rgba(255, 255, 255, 0.2)",
+              borderRadius: "4px",
+              "&:hover": {
+                background: "rgba(255, 255, 255, 0.3)",
+              },
+            },
           }}
         >
           {activeTab === 0 ? (

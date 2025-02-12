@@ -52,6 +52,7 @@ import SAS from "../assets/nba_logos/SAS.svg";
 import TOR from "../assets/nba_logos/TOR.svg";
 import UTA from "../assets/nba_logos/UTA.svg";
 import WAS from "../assets/nba_logos/WAS.svg";
+import NBA from "../assets/nba_logos/NBA_logo.svg";
 
 const teamLogos = {
   ATL,
@@ -85,6 +86,64 @@ const teamLogos = {
   UTA,
   WAS,
 };
+
+const Header = ({ isConnected, lastUpdateTime, isMobile }) => (
+  <Box
+    sx={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      mb: isMobile ? 2 : 3,
+      backgroundColor: "#101010",
+      borderRadius: 2,
+      padding: isMobile ? "12px 16px" : "16px 24px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    }}
+  >
+    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <Box
+        component="img"
+        src={NBA}
+        alt="NBA Logo"
+        sx={{
+          height: isMobile ? "24px" : "32px",
+          width: "auto",
+          // Remove the filter and let the SVG's natural colors show
+        }}
+      />
+      <Typography
+        variant={isMobile ? "h6" : "h4"}
+        sx={{
+          fontSize: isMobile ? "1.5rem" : "2rem",
+          fontWeight: 500,
+          letterSpacing: "0.5px",
+          color: "#ffffff",
+        }}
+      >
+        Scoreboard
+      </Typography>
+    </Box>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <ConnectionIndicator connected={isConnected} />
+      {lastUpdateTime && (
+        <Typography
+          variant="caption"
+          sx={{
+            opacity: 0.7,
+            fontSize: isMobile ? "0.7rem" : "0.75rem",
+          }}
+        >
+          Last update:{" "}
+          {lastUpdateTime.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })}
+        </Typography>
+      )}
+    </Box>
+  </Box>
+);
 
 /**
  * Converts Eastern Standard Time (EST) to local time
@@ -149,11 +208,13 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: isMobile ? 1 : 2,
+        gap: isMobile ? 1.5 : 3,
         flexDirection: isHomeTeam ? "row-reverse" : "row",
         justifyContent: isHomeTeam ? "flex-start" : "flex-start",
-        minWidth: isMobile ? "auto" : "200px",
+        minWidth: isMobile ? "auto" : "300px",
         flex: isMobile ? 1 : "none",
+        width: "100%",
+        maxWidth: isHomeTeam ? "45%" : "45%",
       }}
     >
       <Box
@@ -161,8 +222,8 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         src={logoSrc}
         alt={`${teamName} logo`}
         sx={{
-          width: isMobile ? 32 : 40,
-          height: isMobile ? 32 : 40,
+          width: isMobile ? 48 : 60,
+          height: isMobile ? 48 : 60,
           objectFit: "contain",
         }}
       />
@@ -174,9 +235,9 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
       >
         <Typography
           variant="body1"
-          fontWeight="bold"
+          fontWeight="600"
           sx={{
-            fontSize: isMobile ? "0.875rem" : "1rem",
+            fontSize: isMobile ? "1rem" : "1.25rem",
             whiteSpace: "nowrap",
             color: "rgba(255, 255, 255, 0.95)",
           }}
@@ -185,10 +246,13 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         </Typography>
         {score !== "" && (
           <Typography
-            variant={isMobile ? "h6" : "h5"}
+            variant={isMobile ? "h5" : "h4"}
             sx={{
               color: isWinner ? "#64b5f6" : "rgba(255, 255, 255, 0.95)",
-              fontWeight: isWinner ? 600 : 400,
+              fontWeight: isWinner ? 600 : 500,
+              fontSize: isMobile ? "1.5rem" : "2rem",
+              lineHeight: 1, // Tighten up the spacing between name and score
+              marginTop: "4px", // Add a small gap between name and score
             }}
           >
             {score}
@@ -235,24 +299,26 @@ const GameCard = ({ game, onBoxScoreClick }) => {
         cursor: isNotStarted ? "default" : "pointer",
         mb: isMobile ? 1 : 2,
         backgroundColor: "#262626", // Lighter than background for contrast
-        boxShadow: "0 2px 8px rgba(0,0,0,0.3)", // More pronounced shadow
+        boxShadow: "0 3px 12px rgba(0,0,0,0.3)", // More pronounced shadow
         transition: "all 0.2s ease-in-out",
         "&:hover": {
           transform: isNotStarted ? "none" : "scale(1.01)",
           backgroundColor: "#2d2d2d", // Slightly lighter on hover
         },
-        height: isMobile ? "70px" : "80px",
+        height: isMobile ? "105px" : "120px",
         border: "1px solid rgba(255, 255, 255, 0.08)", // Subtle border
-        borderRadius: "8px", // Slightly more rounded corners
+        borderRadius: "12px", // Slightly more rounded corners
+        width: "100%",
+        maxWidth: "100%",
       }}
     >
       <CardContent
         sx={{
           position: "relative",
-          p: isMobile ? "12px !important" : "16px !important",
+          p: isMobile ? "18px !important" : "24px !important",
           height: "100%",
           "&:last-child": {
-            paddingBottom: isMobile ? "12px !important" : "16px !important",
+            paddingBottom: isMobile ? "18px !important" : "24px !important",
           },
         }}
       >
@@ -287,7 +353,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
                 opacity: 0.5,
                 letterSpacing: "0.5px",
                 fontWeight: 400,
-                fontSize: isMobile ? "0.75rem" : "0.875rem",
+                fontSize: isMobile ? "0.75rem" : "1.25rem",
               }}
             >
               {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "}
@@ -370,53 +436,22 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
 
   return (
     <Container
-      maxWidth="md"
+      maxWidth="xl"
       sx={{
         py: isMobile ? 2 : 4,
         px: isMobile ? 1 : 2,
         height: "100%",
         display: "flex",
         flexDirection: "column",
+        maxWidth: "1400px !important",
       }}
     >
       {/* Header */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: isMobile ? 2 : 3,
-          backgroundColor: "rgba(0, 0, 0, 0.2)",
-          borderRadius: 1,
-          padding: isMobile ? "6px 12px" : "8px 16px",
-        }}
-      >
-        <Typography
-          variant={isMobile ? "subtitle1" : "h6"}
-          sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
-        >
-          NBA Scoreboard
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <ConnectionIndicator connected={isConnected} />
-          {lastUpdateTime && (
-            <Typography
-              variant="caption"
-              sx={{
-                opacity: 0.7,
-                fontSize: isMobile ? "0.7rem" : "0.75rem",
-              }}
-            >
-              Last update:{" "}
-              {lastUpdateTime.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              })}
-            </Typography>
-          )}
-        </Box>
-      </Box>
+      <Header
+        isConnected={isConnected}
+        lastUpdateTime={lastUpdateTime}
+        isMobile={isMobile}
+      />
 
       {/* Live Games Section */}
       {liveGames.length > 0 && (
