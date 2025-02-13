@@ -297,7 +297,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
       }}
       sx={{
         cursor: isNotStarted ? "default" : "pointer",
-        mb: isMobile ? 1 : 2,
+        mb: isMobile ? 1 : 3,
         backgroundColor: "#262626", // Lighter than background for contrast
         boxShadow: "0 3px 12px rgba(0,0,0,0.3)", // More pronounced shadow
         transition: "all 0.2s ease-in-out",

@@ -11,6 +11,7 @@ import {
   Autocomplete,
   Typography,
   Box,
+  useMediaQuery,
 } from "@mui/material";
 
 const NBAPlayerStats = () => {
@@ -18,8 +19,9 @@ const NBAPlayerStats = () => {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [playerStats, setPlayerStats] = useState(null);
+  const isMobile = useMediaQuery("(max-width:600px)");
 
-  // Search players when input is 2 or more characters
+  // Existing fetch functions remain the same
   const searchPlayers = async (query) => {
     if (query.length >= 2) {
       try {
@@ -36,7 +38,6 @@ const NBAPlayerStats = () => {
     }
   };
 
-  // Fetch player stats when a player is selected
   const fetchPlayerStats = async (playerId) => {
     try {
       const response = await fetch(
@@ -49,13 +50,23 @@ const NBAPlayerStats = () => {
     }
   };
 
-  // Format date string
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString();
   };
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box
+      sx={{
+        width: "100%",
+        py: 2,
+        px: isMobile ? 1 : 3,
+        backgroundColor: "#101010",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
       <Box
         sx={{
           mb: 4,
@@ -64,9 +75,6 @@ const NBAPlayerStats = () => {
           alignItems: "center",
         }}
       >
-        <Typography variant="h5" sx={{ mb: 4 }} gutterBottom>
-          NBA Player Stats
-        </Typography>
         <Autocomplete
           options={searchResults}
           getOptionLabel={(option) =>
@@ -82,75 +90,366 @@ const NBAPlayerStats = () => {
               fetchPlayerStats(newValue.person_id);
             }
           }}
+          sx={{
+            width: "100%",
+            maxWidth: 800,
+            "& .MuiOutlinedInput-root": {
+              backgroundColor: "#262626",
+              "&:hover": {
+                backgroundColor: "#2d2d2d",
+              },
+              "& fieldset": {
+                borderColor: "rgba(255, 255, 255, 0.08)",
+              },
+              "&:hover fieldset": {
+                borderColor: "rgba(255, 255, 255, 0.2)",
+              },
+              "&.Mui-focused fieldset": {
+                borderColor: "#64b5f6",
+              },
+            },
+            "& .MuiAutocomplete-listbox": {
+              backgroundColor: "#262626",
+              "& li": {
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#2d2d2d",
+                },
+              },
+            },
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
               label="Search for a player"
               variant="outlined"
-              sx={{ width: 600 }}
+              sx={{
+                "& .MuiInputLabel-root": {
+                  color: "rgba(255, 255, 255, 0.7)",
+                  "&.Mui-focused": {
+                    color: "#64b5f6",
+                  },
+                },
+                "& .MuiInputBase-input": {
+                  color: "white",
+                },
+              }}
             />
           )}
         />
       </Box>
 
       {playerStats && (
-        <Box>
-          <Typography variant="h6" sx={{ mb: 2 }} gutterBottom>
-            Last 10 Games - {playerStats.player_info.display_name} (
-            {playerStats.player_info.team_abbreviation})
+        <Box
+          sx={{
+            overflow: "auto",
+            flex: 1,
+            maxWidth: "1400px", // Adjust this value as needed
+            margin: "0 auto",
+          }}
+        >
+          <Typography
+            variant="h6"
+            sx={{
+              mb: 2,
+              color: "white",
+              fontWeight: 600,
+              fontSize: isMobile ? "1.1rem" : "1.25rem",
+            }}
+          >
+            Last 10 Games - {playerStats.player_info.display_name}{" "}
+            <Typography
+              component="span"
+              sx={{
+                color: "#64b5f6",
+                fontSize: isMobile ? "1rem" : "1.1rem",
+                fontWeight: 500,
+              }}
+            >
+              ({playerStats.player_info.team_abbreviation})
+            </Typography>
           </Typography>
-          <TableContainer component={Paper}>
-            <Table sx={{ minWidth: 650 }} size="small">
+
+          <TableContainer
+            component={Paper}
+            sx={{
+              backgroundColor: "#101010",
+              borderRadius: "12px",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4)",
+              overflow: "auto",
+              "&::-webkit-scrollbar": {
+                display: "none",
+              },
+              msOverflowStyle: "none",
+              scrollbarWidth: "none",
+              width: "100%",
+            }}
+          >
+            <Table
+              size="small"
+              stickyHeader
+              sx={{
+                minWidth: isMobile ? "800px" : "1200px",
+                width: "100%",
+                tableLayout: "fixed",
+              }}
+            >
+              <colgroup>
+                {[
+                  { width: "8%" }, // Date
+                  { width: "12%" }, // Matchup
+                  { width: "4%" }, // W/L
+                  { width: "5%" }, // MIN
+                  { width: "5%" }, // PTS
+                  { width: "7%" }, // FGM-FGA
+                  { width: "5%" }, // FG%
+                  { width: "7%" }, // 3PM-3PA
+                  { width: "5%" }, // 3P%
+                  { width: "7%" }, // FTM-FTA
+                  { width: "5%" }, // FT%
+                  { width: "5%" }, // REB
+                  { width: "5%" }, // AST
+                  { width: "5%" }, // STL
+                  { width: "5%" }, // BLK
+                  { width: "5%" }, // TOV
+                  { width: "5%" }, // +/-
+                ].map((col, index) => (
+                  <col key={index} style={{ width: col.width }} />
+                ))}
+              </colgroup>
               <TableHead>
                 <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Matchup</TableCell>
-                  <TableCell>W/L</TableCell>
-                  <TableCell>MIN</TableCell>
-                  <TableCell>PTS</TableCell>
-                  <TableCell>FGM-FGA</TableCell>
-                  <TableCell>FG%</TableCell>
-                  <TableCell>3PM-3PA</TableCell>
-                  <TableCell>3P%</TableCell>
-                  <TableCell>FTM-FTA</TableCell>
-                  <TableCell>FT%</TableCell>
-                  <TableCell>REB</TableCell>
-                  <TableCell>AST</TableCell>
-                  <TableCell>STL</TableCell>
-                  <TableCell>BLK</TableCell>
-                  <TableCell>TOV</TableCell>
-                  <TableCell>+/-</TableCell>
+                  {[
+                    "Date",
+                    "Matchup",
+                    "W/L",
+                    "MIN",
+                    "PTS",
+                    "FGM-FGA",
+                    "FG%",
+                    "3PM-3PA",
+                    "3P%",
+                    "FTM-FTA",
+                    "FT%",
+                    "REB",
+                    "AST",
+                    "STL",
+                    "BLK",
+                    "TOV",
+                    "+/-",
+                  ].map((header) => (
+                    <TableCell
+                      key={header}
+                      sx={{
+                        backgroundColor: "#101010",
+                        color: "rgba(255, 255, 255, 0.95)",
+                        fontWeight: 600,
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {header}
+                    </TableCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {playerStats.last_10_games.map((game, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{formatDate(game.game_date)}</TableCell>
-                    <TableCell>{game.matchup}</TableCell>
+                  <TableRow
+                    key={index}
+                    sx={{
+                      backgroundColor:
+                        index % 2 === 0
+                          ? "rgba(255, 255, 255, 0.01)"
+                          : "transparent",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.03)",
+                      },
+                    }}
+                  >
                     <TableCell
                       sx={{
-                        color: game.wl === "W" ? "success.main" : "error.main",
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {formatDate(game.game_date)}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {game.matchup}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: game.wl === "W" ? "#4caf50" : "#f44336",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                        fontWeight: 600,
                       }}
                     >
                       {game.wl}
                     </TableCell>
-                    <TableCell>{Math.round(game.min)}</TableCell>
-                    <TableCell>{game.pts}</TableCell>
-                    <TableCell>{`${game.fgm}-${game.fga}`}</TableCell>
-                    <TableCell>{(game.fg_pct * 100).toFixed(1)}%</TableCell>
-                    <TableCell>{`${game.fg3m}-${game.fg3a}`}</TableCell>
-                    <TableCell>{(game.fg3_pct * 100).toFixed(1)}%</TableCell>
-                    <TableCell>{`${game.ftm}-${game.fta}`}</TableCell>
-                    <TableCell>{(game.ft_pct * 100).toFixed(1)}%</TableCell>
-                    <TableCell>{game.reb}</TableCell>
-                    <TableCell>{game.ast}</TableCell>
-                    <TableCell>{game.stl}</TableCell>
-                    <TableCell>{game.blk}</TableCell>
-                    <TableCell>{game.tov}</TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {Math.round(game.min)}
+                    </TableCell>
                     <TableCell
                       sx={{
                         color:
-                          game.plus_minus > 0 ? "success.main" : "error.main",
+                          game.pts >= 20
+                            ? "#64b5f6"
+                            : "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                        fontWeight: game.pts >= 20 ? 600 : 400,
+                      }}
+                    >
+                      {game.pts}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {`${game.fgm}-${game.fga}`}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {(game.fg_pct * 100).toFixed(1)}%
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {`${game.fg3m}-${game.fg3a}`}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {(game.fg3_pct * 100).toFixed(1)}%
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {`${game.ftm}-${game.fta}`}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {(game.ft_pct * 100).toFixed(1)}%
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color:
+                          game.reb >= 10
+                            ? "#64b5f6"
+                            : "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                        fontWeight: game.reb >= 10 ? 600 : 400,
+                      }}
+                    >
+                      {game.reb}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color:
+                          game.ast >= 10
+                            ? "#64b5f6"
+                            : "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                        fontWeight: game.ast >= 10 ? 600 : 400,
+                      }}
+                    >
+                      {game.ast}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {game.stl}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {game.blk}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.87)",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      {game.tov}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: game.plus_minus > 0 ? "#4caf50" : "#f44336",
+                        padding: isMobile ? "8px 4px" : "12px 16px",
+                        fontSize: isMobile ? "0.75rem" : "0.875rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                        fontWeight: Math.abs(game.plus_minus) >= 15 ? 600 : 400,
                       }}
                     >
                       {game.plus_minus > 0
