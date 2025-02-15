@@ -305,7 +305,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
           transform: isNotStarted ? "none" : "scale(1.01)",
           backgroundColor: "#2d2d2d", // Slightly lighter on hover
         },
-        height: isMobile ? "105px" : "125px",
+        height: isMobile ? "120px" : "150px",
         border: "1px solid rgba(255, 255, 255, 0.08)", // Subtle border
         borderRadius: "12px", // Slightly more rounded corners
         width: "100%",
@@ -315,10 +315,10 @@ const GameCard = ({ game, onBoxScoreClick }) => {
       <CardContent
         sx={{
           position: "relative",
-          p: isMobile ? "18px !important" : "24px !important",
+          p: isMobile ? "16px !important" : "24px !important",
           height: "100%",
           "&:last-child": {
-            paddingBottom: isMobile ? "18px !important" : "24px !important",
+            paddingBottom: isMobile ? "16px !important" : "24px !important",
           },
         }}
       >
@@ -353,7 +353,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
                 opacity: 0.5,
                 letterSpacing: "0.5px",
                 fontWeight: 400,
-                fontSize: isMobile ? "0.75rem" : "1.25rem",
+                fontSize: isMobile ? "0.875rem" : "1.25rem",
               }}
             >
               {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "}
