@@ -46,3 +46,30 @@ class GameBoxScore(BaseModel):
     gameId: str
     home_team: TeamBoxScore
     away_team: TeamBoxScore
+
+
+class StandingsResponse(BaseModel):
+    team_id: int
+    team_city: str
+    team_name: str
+    conference: str
+    division: str
+    wins: int
+    losses: int
+    win_pct: float
+    games_back: float
+    conference_rank: int
+    division_rank: int
+    home_record: str
+    road_record: str
+    last_ten: str
+    streak: str
+    points_pg: float
+    opp_points_pg: float
+    division_record: str
+    conference_record: str
+    vs_east: str
+    vs_west: str
+
+    class Config:
+        from_attributes = True

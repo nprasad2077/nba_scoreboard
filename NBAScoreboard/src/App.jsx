@@ -4,29 +4,20 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
+import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import Scoreboard from "./components/Scoreboard";
 import DateScoreBoard from "./components/DateScoreBoard";
+import NBAPlayerStats from "./components/NBAPlayerStats";
 import { useState } from "react";
 import useWebSocket from "./hooks/useWebSocket";
+import darkTheme from './styles/theme'
 
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: {
-      main: "#90caf9",
-    },
-    background: {
-      default: "#121212",
-      paper: "#1e1e1e",
-    },
-  },
-});
+
 
 // Custom TabPanel component to handle content display
 function TabPanel({ children, value, index }) {
   if (value !== index) return null;
-
   return (
     <div
       role="tabpanel"
@@ -72,13 +63,18 @@ function App() {
             aria-controls="scoreboard-tabpanel-0"
           />
           <Tab
-            icon={<SportsSoccerIcon />}
+            icon={<ScoreboardIcon />}
             label="Live"
             id="scoreboard-tab-1"
             aria-controls="scoreboard-tabpanel-1"
           />
+          <Tab
+            icon={<SportsBasketballIcon />}
+            label="NBA Stats"
+            id="scoreboard-tab-2"
+            aria-controls="scoreboard-tabpanel-2"
+          />
         </Tabs>
-
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
           <TabPanel value={currentTab} index={0}>
             <DateScoreBoard />
@@ -89,6 +85,9 @@ function App() {
               isConnected={isConnected}
               lastUpdateTime={lastUpdateTime}
             />
+          </TabPanel>
+          <TabPanel value={currentTab} index={2}>
+            <NBAPlayerStats />
           </TabPanel>
         </Box>
       </Box>

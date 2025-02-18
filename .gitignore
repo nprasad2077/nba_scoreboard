@@ -229,6 +229,14 @@ nba_scoreboard_api/ENV/
 
 nba_scoreboard_api/test/test_remote_endpoint.py
 
+nba_scoreboard_api/data/player_images/
+
+nba_scoreboard_api/data/player_images/*
+
+nba_scoreboard_api/logs/
+nba_scoreboard_api/logs
+nba_scoreboard_api/logs/*
+
 # mkdocs documentation
 /site
 
@@ -287,3 +295,7 @@ NBAScoreboard/vite.lock
 .vscode/
 NBAScoreboard/.idea/
 NBAScoreboard/.vscode/
+
+NBAScoreboard/public/player_images
+NBAScoreboard/public/player_images/
+NBAScoreboard/public/player_images/*

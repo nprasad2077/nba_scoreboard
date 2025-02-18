@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from "react";
 import BoxScore from "./BoxScore";
 import ConnectionIndicator from "./ConnectionIndicator";
+import GameDetailsModal from "./GameDetailsModal";
+import NBA from "../assets/nba_logos/NBA_logo.svg";
 import {
   Box,
   Card,
@@ -86,6 +88,75 @@ const teamLogos = {
   WAS,
 };
 
+const Header = ({ lastUpdateTime, isMobile, selectedDate, onDateChange }) => (
+  <Box
+    sx={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      mb: isMobile ? 2 : 3,
+      backgroundColor: "#101010",
+      borderRadius: 2,
+      padding: isMobile ? "12px 16px" : "16px 24px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    }}
+  >
+    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <Box
+        component="img"
+        src={NBA}
+        alt="NBA Logo"
+        sx={{
+          height: isMobile ? "24px" : "32px",
+          width: "auto",
+        }}
+      />
+      <Typography
+        variant={isMobile ? "h6" : "h4"}
+        sx={{
+          fontSize: isMobile ? "1.5rem" : "2rem",
+          fontWeight: 500,
+          letterSpacing: "0.5px",
+          color: "#ffffff",
+        }}
+      >
+        Box Scores
+      </Typography>
+    </Box>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <DatePicker
+        label="Select Date"
+        value={selectedDate}
+        onChange={onDateChange}
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            backgroundColor: "#262626",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#2d2d2d",
+            },
+            "& fieldset": {
+              borderColor: "rgba(255, 255, 255, 0.08)",
+            },
+            "&:hover fieldset": {
+              borderColor: "rgba(255, 255, 255, 0.2)",
+            },
+            "&.Mui-focused fieldset": {
+              borderColor: "#64b5f6",
+            },
+          },
+          "& .MuiInputLabel-root": {
+            color: "rgba(255, 255, 255, 0.7)",
+            "&.Mui-focused": {
+              color: "#64b5f6",
+            },
+          },
+        }}
+      />
+    </LocalizationProvider>
+  </Box>
+);
+
 /**
  * Converts Eastern Standard Time (EST) to local time
  * @param {string} timeStr - Time string in format "Start: HH:MM PM"
@@ -150,11 +221,13 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: isMobile ? 1 : 2,
+        gap: isMobile ? 1.5 : 3,
         flexDirection: isHomeTeam ? "row-reverse" : "row",
         justifyContent: isHomeTeam ? "flex-start" : "flex-start",
-        minWidth: isMobile ? "auto" : "200px",
+        minWidth: isMobile ? "auto" : "300px",
         flex: isMobile ? 1 : "none",
+        width: "100%",
+        maxWidth: isHomeTeam ? "45%" : "45%",
       }}
     >
       <Box
@@ -162,8 +235,8 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
         src={logoSrc}
         alt={`${teamName} logo`}
         sx={{
-          width: isMobile ? 32 : 40,
-          height: isMobile ? 32 : 40,
+          width: isMobile ? 48 : 72,
+          height: isMobile ? 48 : 72,
           objectFit: "contain",
         }}
       />
@@ -175,21 +248,26 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
       >
         <Typography
           variant="body1"
-          fontWeight="bold"
+          fontWeight="600"
           sx={{
-            fontSize: isMobile ? "0.875rem" : "1rem",
+            fontSize: isMobile ? "1rem" : "1.5rem",
             whiteSpace: "nowrap",
             // Remove maxWidth and overflow handling since we're using conditional rendering
-            color: "#ffffff",
+            color: "rgba(255, 255, 255, 0.95)",
           }}
         >
           {isMobile ? tricode : teamName}
         </Typography>
         {score !== "" && (
           <Typography
-            variant={isMobile ? "h6" : "h5"}
-            color={isWinner ? "primary" : "text.primary"}
-            sx={{ color: isWinner ? "#64b5f6" : "#ffffff" }}
+            variant={isMobile ? "h5" : "h4"}
+            sx={{
+              color: isWinner ? "#64b5f6" : "rgba(255, 255, 255, 0.95)",
+              fontWeight: isWinner ? 600 : 500,
+              fontSize: isMobile ? "1.5rem" : "2rem", // Increased from h5/h4 to specific sizes
+              lineHeight: 1,
+              marginTop: "4px",
+            }}
           >
             {score}
           </Typography>
@@ -233,23 +311,30 @@ const GameCard = ({ game, onBoxScoreClick }) => {
         }
       }}
       sx={{
-        // Change the cursor to indicate non-clickable if game not started
         cursor: isNotStarted ? "default" : "pointer",
-        mb: isMobile ? 1 : 2,
-        backgroundColor: "rgb(45, 45, 45)",
-        boxShadow: "none",
-        transition: "transform 0.2s",
+        mb: isMobile ? 1 : 3,
+        backgroundColor: "#262626",
+        boxShadow: "0 3px 12px rgba(0,0,0,0.3)",
+        transition: "all 0.2s ease-in-out",
         "&:hover": {
           transform: isNotStarted ? "none" : "scale(1.01)",
+          backgroundColor: "#2d2d2d",
         },
-        height: isMobile ? "70px" : "80px",
+        height: isMobile ? "120px" : "150px",
+        border: "1px solid rgba(255, 255, 255, 0.08)",
+        borderRadius: "12px",
+        width: "100%",
+        maxWidth: "100%",
       }}
     >
       <CardContent
         sx={{
           position: "relative",
-          p: isMobile ? "12px !important" : "16px !important",
+          p: isMobile ? "16px !important" : "24px !important", // Increased padding
           height: "100%",
+          "&:last-child": {
+            paddingBottom: isMobile ? "16px !important" : "24px !important",
+          },
         }}
       >
         <Stack
@@ -329,7 +414,8 @@ const DateScoreBoard = () => {
   useEffect(() => {
     let pollingInterval = null;
     const base_url =
-      import.meta.env.VITE_SCORE_URL || "http://192.168.1.71:8000/scoreboard/past";
+      import.meta.env.VITE_SCORE_URL ||
+      "http://192.168.1.71:8000/scoreboard/past";
 
     const fetchScoreData = async () => {
       try {
@@ -432,19 +518,21 @@ const DateScoreBoard = () => {
    *  we prevent the click in <GameCard> for not-started games.)
    */
   const handleBoxScoreClick = (game) => {
+    console.log("selected game: ", game);
     setSelectedGame(game);
     setBoxScoreOpen(true);
   };
 
   return (
     <Container
-      maxWidth="md"
+      maxWidth="xl"
       sx={{
         py: isMobile ? 2 : 4,
         px: isMobile ? 1 : 2,
         height: "100%",
         display: "flex",
         flexDirection: "column",
+        maxWidth: "1200px !important",
       }}
     >
       {/* Header */}
@@ -613,13 +701,13 @@ const DateScoreBoard = () => {
         </Box>
       )}
 
-      {/** Boxscore Modal
+      {/** GameDetails Modal
        * BoxScore component still uses the REST endpoint `GET /boxscore/{game_id}`
        * We won't call it for games that have not started, because <GameCard>
        * prevents the click if `game.time` starts with "Start:" or "0Q".
        */}
-      <BoxScore
-        game={selectedGame}
+      <GameDetailsModal
+        gameId={selectedGame}
         open={boxScoreOpen}
         onClose={() => {
           setBoxScoreOpen(false);

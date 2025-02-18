@@ -8,21 +8,19 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TableSortLabel,
   Toolbar,
   Typography,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
   CircularProgress,
   useMediaQuery,
+  Button,
+  Collapse,
 } from "@mui/material";
-import { Close } from "@mui/icons-material";
 import { visuallyHidden } from "@mui/utils";
 import { teamLogos } from "../assets/nba_logos/teamLogosMap";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 
 const getTeamAbbreviation = (teamCity, teamName) => {
   const teamAbbreviations = {
@@ -57,7 +55,6 @@ const getTeamAbbreviation = (teamCity, teamName) => {
     Utah: "UTA",
     Washington: "WAS",
   };
-
   return teamAbbreviations[teamCity] || "";
 };
 
@@ -72,7 +69,6 @@ const headCells = [
   { id: "plusMinusPoints", numeric: true, label: "+/-", width: "12%" },
 ];
 
-// Helper function to format player names
 const formatPlayerName = (fullName, isMobile) => {
   if (!isMobile) return fullName;
   const nameParts = fullName.split(" ");
@@ -83,28 +79,19 @@ const formatPlayerName = (fullName, isMobile) => {
 };
 
 function descendingComparator(a, b, orderBy) {
-  // Handle special cases
   if (orderBy === "fieldGoals") {
-    // Sort by fieldGoalsMade
     const aMade = a.statistics.fieldGoalsMade ?? 0;
     const bMade = b.statistics.fieldGoalsMade ?? 0;
-    if (bMade !== aMade) {
-      return bMade - aMade;
-    }
-    // If made values are equal, use attempts as secondary sort
+    if (bMade !== aMade) return bMade - aMade;
     return (
       (b.statistics.fieldGoalsAttempted ?? 0) -
       (a.statistics.fieldGoalsAttempted ?? 0)
     );
   }
   if (orderBy === "threePointers") {
-    // Sort by threePointersMade
     const aMade = a.statistics.threePointersMade ?? 0;
     const bMade = b.statistics.threePointersMade ?? 0;
-    if (bMade !== aMade) {
-      return bMade - aMade;
-    }
-    // If made values are equal, use attempts as secondary sort
+    if (bMade !== aMade) return bMade - aMade;
     return (
       (b.statistics.threePointersAttempted ?? 0) -
       (a.statistics.threePointersAttempted ?? 0)
@@ -120,7 +107,6 @@ function descendingComparator(a, b, orderBy) {
     return bMinutes - aMinutes;
   }
 
-  // For all other fields
   const aValue = orderBy === "name" ? a[orderBy] : a.statistics[orderBy] ?? 0;
   const bValue = orderBy === "name" ? b[orderBy] : b.statistics[orderBy] ?? 0;
 
@@ -150,39 +136,36 @@ function EnhancedTableHead(props) {
             align={headCell.numeric ? "right" : "left"}
             sortDirection={orderBy === headCell.id ? order : false}
             sx={{
-              backgroundColor: "rgb(30, 30, 30)",
-              color: "white",
-              fontWeight: "semi-bold",
+              backgroundColor: "#101010",
+              color: "rgba(255, 255, 255, 0.95)",
+              fontWeight: 600,
               width: headCell.width,
-              padding: isMobile ? "2px 2px" : "8px 4px",
-              fontSize: isMobile ? "0.2rem" : "0.875rem",
+              padding: isMobile ? "8px 4px" : "12px 16px",
+              fontSize: isMobile ? "0.75rem" : "0.875rem",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              whiteSpace: "nowrap",
             }}
           >
             <TableSortLabel
               active={orderBy === headCell.id}
               direction={orderBy === headCell.id ? order : "desc"}
               onClick={createSortHandler(headCell.id)}
-              hideSortIcon={false} // Keep space for icon
               sx={{
-                color: "white !important",
-                padding: 0,
-                margin: 0,
-                minWidth: headCell.numeric ? "100%" : "auto",
-                // Hide icon by default so columns remain aligned
+                color: "rgba(255, 255, 255, 0.95) !important",
+                "&.Mui-active": {
+                  color: "#64b5f6 !important",
+                },
                 "& .MuiTableSortLabel-icon": {
-                  visibility: "hidden",
-                },
-                // Show icon when active
-                "&.Mui-active .MuiTableSortLabel-icon": {
-                  visibility: "visible",
-                },
-                // Remove MUI's trailing dot
-                "& .MuiTableSortLabel-iconDirectionDesc::after, & .MuiTableSortLabel-iconDirectionAsc::after": {
-                  content: '""',
+                  color: "#64b5f6 !important",
                 },
               }}
             >
               {headCell.label}
+              {orderBy === headCell.id ? (
+                <Box component="span" sx={visuallyHidden}>
+                  {order === "desc" ? "sorted descending" : "sorted ascending"}
+                </Box>
+              ) : null}
             </TableSortLabel>
           </TableCell>
         ))}
@@ -190,12 +173,6 @@ function EnhancedTableHead(props) {
     </TableHead>
   );
 }
-
-EnhancedTableHead.propTypes = {
-  onRequestSort: PropTypes.func.isRequired,
-  order: PropTypes.oneOf(["asc", "desc"]).isRequired,
-  orderBy: PropTypes.string.isRequired,
-};
 
 function formatMinutes(minutes) {
   if (!minutes || minutes === "PT00M00.00S") return "0:00";
@@ -210,8 +187,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
   const isMobile = useMediaQuery("(max-width:600px)");
   const [order, setOrder] = useState("desc");
   const [orderBy, setOrderBy] = useState("minutes");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(isMobile ? 5 : 8);
+  const [showAll, setShowAll] = useState(false);
 
   const handleRequestSort = (event, property) => {
     const isAsc = orderBy === property && order === "desc";
@@ -219,48 +195,44 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
     setOrderBy(property);
   };
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Filter active players outside of useMemo
   const activePlayers = team.players.filter(
     (player) => player.status === "ACTIVE"
   );
 
-  // Create sorted and paginated rows
-  const sortedPlayers = [...activePlayers].sort(getComparator(order, orderBy));
+  const sortedPlayers = React.useMemo(
+    () => [...activePlayers].sort(getComparator(order, orderBy)),
+    [activePlayers, order, orderBy]
+  );
 
-  const visibleRows = React.useMemo(() => {
-    const sortedRows = [...activePlayers].sort(getComparator(order, orderBy));
-    return sortedRows.slice(
-      page * rowsPerPage,
-      page * rowsPerPage + rowsPerPage
-    );
-  }, [activePlayers, order, orderBy, page, rowsPerPage]);
+  const displayedPlayers = showAll
+    ? sortedPlayers
+    : sortedPlayers.slice(0, isMobile ? 5 : 8);
 
-  const emptyRows =
-    page > 0 ? Math.max(0, (1 + page) * rowsPerPage - activePlayers.length) : 0;
-
-  // Extract team abbreviation once
   const teamAbbreviation = getTeamAbbreviation(team.teamCity, team.teamName);
 
   return (
     <Box sx={{ width: "100%", mb: 4 }}>
-      <Paper sx={{ width: "100%", mb: 2, backgroundColor: "rgb(30, 30, 30)" }}>
+      <Paper
+        sx={{
+          width: "100%",
+          mb: 2,
+          backgroundColor: "#101010",
+          borderRadius: "12px",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4)",
+          overflow: "hidden",
+        }}
+      >
         <Toolbar
           sx={{
-            pl: isMobile ? 1 : 2,
-            pr: isMobile ? 0.5 : 1,
-            minHeight: isMobile ? 48 : 64,
+            pl: isMobile ? 2 : 3,
+            pr: isMobile ? 1 : 2,
+            minHeight: isMobile ? "60px" : "72px",
             display: "flex",
             alignItems: "center",
             gap: 2,
+            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+            backgroundColor: "#101010",
           }}
         >
           <Box
@@ -268,7 +240,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
             src={teamLogos[teamAbbreviation]}
             alt={`${team.teamCity} ${team.teamName} logo`}
             sx={{
-              height: isMobile ? 24 : 32,
+              height: isMobile ? "32px" : "40px",
               width: "auto",
               objectFit: "contain",
             }}
@@ -276,36 +248,45 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
           <Typography
             sx={{
               flex: "1 1 100%",
-              fontSize: isMobile ? "0.9rem" : "1.25rem",
+              fontSize: isMobile ? "1rem" : "1.25rem",
+              fontWeight: 600,
+              color: "white",
             }}
-            variant={isMobile ? "subtitle1" : "h6"}
+            variant="h6"
             component="div"
-            color="white"
           >
-            {teamName} {scoreboardScore ? ` - ${scoreboardScore}` : ""}
+            {teamName}
+            {scoreboardScore && (
+              <Typography
+                component="span"
+                sx={{
+                  ml: 2,
+                  color: "#64b5f6",
+                  fontSize: isMobile ? "1.25rem" : "1.5rem",
+                  fontWeight: 600,
+                }}
+              >
+                {scoreboardScore}
+              </Typography>
+            )}
           </Typography>
         </Toolbar>
+
         <TableContainer>
           <Table
             sx={{
-              tableLayout: isMobile ? 'fixed' : 'fixed',
-              width: "100%",
-              minWidth: isMobile ? "auto" : 750,
+              tableLayout: "fixed",
               "& .MuiTableCell-root": {
-                padding: isMobile ? "4px" : "8px",
-                fontSize: isMobile ? "0.65rem" : "0.875rem",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                padding: isMobile ? "8px 4px" : "12px 16px",
+                fontSize: isMobile ? "0.75rem" : "0.875rem",
+                color: "rgba(255, 255, 255, 0.95)",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
               },
-              "& col": {
-                width: "auto",
+              "& .MuiTableRow-root:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.03)",
               },
             }}
-            size="small"
           >
-            {/* Add colgroup to explicitly define column widths */}
             <colgroup>
               {headCells.map((cell, index) => (
                 <col key={index} style={{ width: cell.width }} />
@@ -319,44 +300,55 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
               isMobile={isMobile}
             />
             <TableBody>
-              {visibleRows.map((player) => (
+              {displayedPlayers.map((player, index) => (
                 <TableRow
                   hover
                   tabIndex={-1}
                   key={player.name}
                   sx={{
                     backgroundColor: player.starter
-                      ? "rgba(255, 255, 255, 0.05)"
+                      ? "rgba(255, 255, 255, 0.00)"
+                      : index % 2 === 0
+                      ? "rgba(255, 255, 255, 0.00)"
                       : "transparent",
                     "&:hover": {
-                      backgroundColor: "rgba(255, 255, 255, 0.1) !important",
+                      backgroundColor: "rgba(255, 255, 255, 0.06) !important",
                     },
                   }}
                 >
                   <TableCell
                     sx={{
-                      color: "white",
-                      width: headCells[0].width,
-                      padding: isMobile ? "4px" : "8px",
+                      color: "rgba(255, 255, 255, 0.9)",
+                      fontWeight: player.starter ? 600 : 400,
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
                     }}
                   >
                     {formatPlayerName(player.name, isMobile)}
+                    {player.oncourt && (
+                      <Box
+                        sx={{
+                          width: "6px",
+                          height: "6px",
+                          borderRadius: "50%",
+                          backgroundColor: "#4caf50",
+                          display: "inline-block",
+                          animation: "pulse 2s infinite",
+                        }}
+                      />
+                    )}
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      color: "white",
-                      width: headCells[1].width,
-                      padding: isMobile ? "4px" : "8px",
-                    }}
-                  >
+                  <TableCell>
                     {formatMinutes(player.statistics.minutes)}
                   </TableCell>
                   <TableCell
                     align="right"
                     sx={{
-                      color: "white",
-                      width: headCells[2].width,
-                      padding: isMobile ? "2px" : "8px",
+                      color:
+                        player.statistics.points >= 20 ? "#64b5f6" : "inherit",
+                      fontWeight: player.statistics.points >= 20 ? 600 : 400,
                     }}
                   >
                     {player.statistics.points}
@@ -364,9 +356,12 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                   <TableCell
                     align="right"
                     sx={{
-                      color: "white",
-                      width: headCells[3].width,
-                      padding: isMobile ? "2px" : "8px",
+                      color:
+                        player.statistics.reboundsTotal >= 10
+                          ? "#64b5f6"
+                          : "inherit",
+                      fontWeight:
+                        player.statistics.reboundsTotal >= 10 ? 600 : 400,
                     }}
                   >
                     {player.statistics.reboundsTotal}
@@ -374,94 +369,81 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                   <TableCell
                     align="right"
                     sx={{
-                      color: "white",
-                      width: headCells[4].width,
-                      padding: isMobile ? "2px" : "8px",
+                      color:
+                        player.statistics.assists >= 10 ? "#64b5f6" : "inherit",
+                      fontWeight: player.statistics.assists >= 10 ? 600 : 400,
                     }}
                   >
                     {player.statistics.assists}
                   </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      color: "white",
-                      width: headCells[5].width,
-                      padding: isMobile ? "2px" : "8px",
-                    }}
-                  >
+                  <TableCell align="right">
                     {`${player.statistics.fieldGoalsMade}-${player.statistics.fieldGoalsAttempted}`}
                   </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      color: "white",
-                      width: headCells[6].width,
-                      padding: isMobile ? "2px" : "8px",
-                    }}
-                  >
+                  <TableCell align="right">
                     {`${player.statistics.threePointersMade}-${player.statistics.threePointersAttempted}`}
                   </TableCell>
                   <TableCell
                     align="right"
                     sx={{
-                      color: "white",
-                      width: headCells[7].width,
-                      padding: isMobile ? "2px" : "8px",
+                      color:
+                        player.statistics.plusMinusPoints > 0
+                          ? "#4caf50"
+                          : player.statistics.plusMinusPoints < 0
+                          ? "#f44336"
+                          : "inherit",
+                      fontWeight:
+                        Math.abs(player.statistics.plusMinusPoints) >= 15
+                          ? 600
+                          : 400,
                     }}
                   >
-                    {player.statistics.plusMinusPoints}
+                    {player.statistics.plusMinusPoints > 0
+                      ? `+${player.statistics.plusMinusPoints}`
+                      : player.statistics.plusMinusPoints}
                   </TableCell>
                 </TableRow>
               ))}
-              {emptyRows > 0 && (
-                <TableRow
-                  style={{ height: (isMobile ? 29 : 33) * emptyRows }}
-                >
-                  <TableCell colSpan={8} sx={{ color: "white" }} />
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={isMobile ? [5, 10] : [8, 14, 25]}
-          component="div"
-          count={activePlayers.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          sx={{
-            color: "white",
-            ".MuiTablePagination-selectIcon": { color: "white" },
-            ".MuiTablePagination-select": {
-              color: "white",
-              fontSize: isMobile ? "0.65rem" : "0.875rem",
-            },
-            ".MuiTablePagination-selectLabel": {
-              color: "white",
-              fontSize: isMobile ? "0.65rem" : "0.875rem",
-            },
-            ".MuiTablePagination-displayedRows": {
-              color: "white",
-              fontSize: isMobile ? "0.65rem" : "0.875rem",
-            },
-            ".MuiTablePagination-actions": { color: "white" },
-            ".MuiIconButton-root": {
-              color: "white",
-              padding: isMobile ? "4px" : "8px",
-            },
-          }}
-        />
+
+        {/* Expand/Collapse Button */}
+        {activePlayers.length > (isMobile ? 5 : 8) && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              padding: 2,
+              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              backgroundColor: "#101010",
+            }}
+          >
+            <Button
+              onClick={() => setShowAll(!showAll)}
+              endIcon={showAll ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              sx={{
+                color: "#64b5f6",
+                "&:hover": {
+                  backgroundColor: "rgba(100, 181, 246, 0.08)",
+                },
+                textTransform: "none",
+                fontWeight: 600,
+              }}
+            >
+              {showAll ? "Show Less" : "Show All"}
+            </Button>
+          </Box>
+        )}
       </Paper>
     </Box>
   );
 }
 
-const BoxScore = ({ game, open, onClose }) => {
+const BoxScore = ({ game, open }) => {
   if (!game || !open) {
     return null;
   }
+
   const isMobile = useMediaQuery("(max-width:600px)");
   const [boxScore, setBoxScore] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -492,78 +474,53 @@ const BoxScore = ({ game, open, onClose }) => {
   }, [gameId]);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xl"
-      fullWidth
-      keepMounted={false}
-      fullScreen={isMobile} // Make dialog fullscreen on mobile
-      PaperProps={{
-        sx: {
-          height: isMobile ? "100vh" : "90vh",
-          backgroundColor: "rgb(30, 30, 30)",
+    <Box
+      sx={{
+        width: "100%",
+        py: 2,
+        px: isMobile ? 1 : 3,
+        backgroundColor: "#101010",
+        overflow: "auto",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        "&::-webkit-scrollbar": {
+          display: "none",
         },
+        msOverflowStyle: "none",
+        scrollbarWidth: "none",
       }}
     >
-      <DialogTitle
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          backgroundColor: "rgb(30, 30, 30)",
-          color: "white",
-          padding: isMobile ? "12px 8px" : "16px 24px",
-          fontSize: isMobile ? "1.1rem" : "1.25rem",
-        }}
-      >
-        Box Score
-        <IconButton
-          onClick={onClose}
-          sx={{
-            color: "white",
-            padding: isMobile ? "6px" : "8px",
-          }}
+      {loading ? (
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          height="200px"
         >
-          <Close sx={{ fontSize: isMobile ? "1.25rem" : "1.5rem" }} />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent
-        sx={{
-          backgroundColor: "rgb(30, 30, 30)",
-          padding: isMobile ? "8px 16px" : "16px 32px",
-          overflowX: "auto",
-        }}
-      >
-        {loading ? (
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            height="100%"
-          >
-            <CircularProgress />
-          </Box>
-        ) : error ? (
-          <Typography color="error">{error}</Typography>
-        ) : (
-          boxScore && (
-            <>
-              <TeamBoxScoreTable
-                team={boxScore.away_team}
-                teamName={`${boxScore.away_team.teamCity} ${boxScore.away_team.teamName}`}
-                scoreboardScore={awayScore}
-              />
-              <TeamBoxScoreTable
-                team={boxScore.home_team}
-                teamName={`${boxScore.home_team.teamCity} ${boxScore.home_team.teamName}`}
-                scoreboardScore={homeScore}
-              />
-            </>
-          )
-        )}
-      </DialogContent>
-    </Dialog>
+          <CircularProgress sx={{ color: "#64b5f6" }} />
+        </Box>
+      ) : error ? (
+        <Typography color="error" sx={{ textAlign: "center" }}>
+          {error}
+        </Typography>
+      ) : (
+        boxScore && (
+          <>
+            <TeamBoxScoreTable
+              team={boxScore.away_team}
+              teamName={`${boxScore.away_team.teamCity} ${boxScore.away_team.teamName}`}
+              scoreboardScore={awayScore}
+            />
+            <TeamBoxScoreTable
+              team={boxScore.home_team}
+              teamName={`${boxScore.home_team.teamCity} ${boxScore.home_team.teamName}`}
+              scoreboardScore={homeScore}
+            />
+          </>
+        )
+      )}
+    </Box>
   );
 };
 
