@@ -741,7 +741,7 @@ async def get_player_last_10_games(player_id: int, db: Session = Depends(get_db)
             player_id_nullable=player_id,
             season_nullable="2024-25",
             season_type_nullable="Regular Season",
-            last_n_games_nullable=10,
+            last_n_games_nullable=20,
         )
 
         df_games = player_games.get_data_frames()[0]

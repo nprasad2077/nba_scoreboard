@@ -12,6 +12,7 @@ import {
   Typography,
   Box,
   useMediaQuery,
+  Avatar,
 } from "@mui/material";
 
 const NBAPlayerStats = () => {
@@ -21,7 +22,20 @@ const NBAPlayerStats = () => {
   const [playerStats, setPlayerStats] = useState(null);
   const isMobile = useMediaQuery("(max-width:600px)");
 
-  // Existing fetch functions remain the same
+  const getPlayerImagePath = (playerId, playerName, teamAbbreviation) => {
+    if (!playerId || !playerName || !teamAbbreviation) return null;
+
+    // Format player name by replacing spaces with underscores
+    const formattedName = playerName.replace(/\s+/g, "_");
+
+    console.log(formattedName);
+
+    // Construct the filename
+    const imagePath = `/player_images/${playerId}_${formattedName}_${teamAbbreviation}.png`;
+    console.log("Attempting to load image from path:", imagePath);
+    return imagePath;
+  };
+
   const searchPlayers = async (query) => {
     if (query.length >= 2) {
       try {
@@ -67,6 +81,7 @@ const NBAPlayerStats = () => {
         overflow: "hidden",
       }}
     >
+      {/* Search Box */}
       <Box
         sx={{
           mb: 4,
@@ -144,30 +159,65 @@ const NBAPlayerStats = () => {
           sx={{
             overflow: "auto",
             flex: 1,
-            maxWidth: "1400px", // Adjust this value as needed
+            maxWidth: "1400px",
             margin: "0 auto",
           }}
         >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              mb: 3,
+              gap: 2,
+            }}
+          >
+            <Avatar
+              src={getPlayerImagePath(
+                playerStats?.player_info?.person_id,
+                playerStats?.player_info?.display_name,
+                playerStats?.player_info?.team_abbreviation
+              )}
+              alt={playerStats?.player_info?.display_name}
+              sx={{
+                width: isMobile ? 60 : 80,
+                height: isMobile ? 60 : 80,
+                border: "2px solid rgba(255, 255, 255, 0.08)",
+                backgroundColor: "#262626",
+              }}
+            />
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: "white",
+                  fontWeight: 600,
+                  fontSize: isMobile ? "1.1rem" : "1.25rem",
+                }}
+              >
+                {playerStats.player_info.display_name}
+              </Typography>
+              <Typography
+                sx={{
+                  color: "#64b5f6",
+                  fontSize: isMobile ? "1rem" : "1.1rem",
+                  fontWeight: 500,
+                }}
+              >
+                {playerStats.player_info.team_abbreviation}
+              </Typography>
+            </Box>
+          </Box>
+
           <Typography
             variant="h6"
             sx={{
               mb: 2,
               color: "white",
               fontWeight: 600,
-              fontSize: isMobile ? "1.1rem" : "1.25rem",
+              fontSize: isMobile ? "1rem" : "1.1rem",
             }}
           >
-            Last 10 Games - {playerStats.player_info.display_name}{" "}
-            <Typography
-              component="span"
-              sx={{
-                color: "#64b5f6",
-                fontSize: isMobile ? "1rem" : "1.1rem",
-                fontWeight: 500,
-              }}
-            >
-              ({playerStats.player_info.team_abbreviation})
-            </Typography>
+            Last 10 Games
           </Typography>
 
           <TableContainer
