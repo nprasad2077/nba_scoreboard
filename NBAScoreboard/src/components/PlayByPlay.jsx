@@ -21,6 +21,7 @@ const PlayByPlay = ({ gameId }) => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const socketRef = useRef(null);
   const isMobile = useMediaQuery("(max-width:600px)");
+  console.log(actions)
 
   useEffect(() => {
     setLoading(true);
@@ -37,7 +38,7 @@ const PlayByPlay = ({ gameId }) => {
       setInitialLoadComplete(true);
     }, 200);
 
-    const socketUrl = `ws://localhost:8000/ws/playbyplay/${gameId}`;
+    const socketUrl = `ws://localhost:8000/api/v1/scoreboard/ws/playbyplay/${gameId}`;
     console.log("Connecting to:", socketUrl);
 
     try {
