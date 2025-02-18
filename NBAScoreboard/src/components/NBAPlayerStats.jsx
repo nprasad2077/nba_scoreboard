@@ -22,18 +22,9 @@ const NBAPlayerStats = () => {
   const [playerStats, setPlayerStats] = useState(null);
   const isMobile = useMediaQuery("(max-width:600px)");
 
-  const getPlayerImagePath = (playerId, playerName, teamAbbreviation) => {
-    if (!playerId || !playerName || !teamAbbreviation) return null;
-
-    // Format player name by replacing spaces with underscores
-    const formattedName = playerName.replace(/\s+/g, "_");
-
-    console.log(formattedName);
-
-    // Construct the filename
-    const imagePath = `/player_images/${playerId}_${formattedName}_${teamAbbreviation}.png`;
-    console.log("Attempting to load image from path:", imagePath);
-    return imagePath;
+  const getPlayerImagePath = (playerId) => {
+    if (!playerId) return null;
+    return `https://cdn.nba.com/headshots/nba/latest/1040x760/${playerId}.png`;
   };
 
   const searchPlayers = async (query) => {
@@ -172,11 +163,7 @@ const NBAPlayerStats = () => {
             }}
           >
             <Avatar
-              src={getPlayerImagePath(
-                playerStats?.player_info?.person_id,
-                playerStats?.player_info?.display_name,
-                playerStats?.player_info?.team_abbreviation
-              )}
+              src={getPlayerImagePath(playerStats?.player_info?.person_id)}
               alt={playerStats?.player_info?.display_name}
               sx={{
                 width: isMobile ? 60 : 80,
@@ -217,7 +204,7 @@ const NBAPlayerStats = () => {
               fontSize: isMobile ? "1rem" : "1.1rem",
             }}
           >
-            Last 10 Games
+            Last 20 Games
           </Typography>
 
           <TableContainer
