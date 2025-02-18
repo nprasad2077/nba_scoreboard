@@ -256,7 +256,7 @@ class GameStats(BaseModel):
 
 class PlayerStats(BaseModel):
     player_info: PlayerBase
-    last_10_games: List[GameStats]
+    games: List[GameStats]
 
 
 def safe_get_score(team_dict: Optional[Dict]) -> str:
@@ -727,21 +727,30 @@ async def search_players(
     return players
 
 
-@app.get("/players/{player_id}/last10", response_model=PlayerStats)
-async def get_player_last_10_games(player_id: int, db: Session = Depends(get_db)):
-    """Get a player's last 10 games statistics."""
+@app.get("/players/{player_id}/games", response_model=PlayerStats)  # Changed route name to be more generic
+async def get_player_recent_games(
+    player_id: int, 
+    last_n_games: int = Query(default=10, ge=1, le=82),  # Add parameter with validation
+    db: Session = Depends(get_db)
+):
+    """Get a player's recent game statistics.
+    
+    Args:
+        player_id: The ID of the player
+        last_n_games: Number of recent games to return (default: 10, min: 1, max: 82)
+    """
     # Get player info from database
     player = db.query(Player).filter(Player.person_id == player_id).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
 
     try:
-        # Get last 10 games stats from NBA API
+        # Get game stats from NBA API with dynamic last_n_games
         player_games = playergamelogs.PlayerGameLogs(
             player_id_nullable=player_id,
             season_nullable="2024-25",
             season_type_nullable="Regular Season",
-            last_n_games_nullable=20,
+            last_n_games_nullable=last_n_games,  # Use the parameter here
         )
 
         df_games = player_games.get_data_frames()[0]
@@ -755,7 +764,7 @@ async def get_player_last_10_games(player_id: int, db: Session = Depends(get_db)
                 wl=game["WL"],
                 min=(
                     float(game["MIN"]) if game["MIN"] else 0.0
-                ),  # Convert to float with fallback
+                ),
                 pts=game["PTS"],
                 fgm=game["FGM"],
                 fga=game["FGA"],
@@ -778,8 +787,8 @@ async def get_player_last_10_games(player_id: int, db: Session = Depends(get_db)
             )
             games_list.append(game_stats)
 
-        # Create response object
-        response = PlayerStats(player_info=player, last_10_games=games_list)
+        # Create response object with the generic games field
+        response = PlayerStats(player_info=player, games=games_list)
 
         return response
 

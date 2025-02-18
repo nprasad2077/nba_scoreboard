@@ -233,6 +233,10 @@ nba_scoreboard_api/data/player_images/
 
 nba_scoreboard_api/data/player_images/*
 
+nba_scoreboard_api/logs/
+nba_scoreboard_api/logs
+nba_scoreboard_api/logs/*
+
 # mkdocs documentation
 /site
 

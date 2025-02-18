@@ -13,6 +13,7 @@ import {
   Box,
   useMediaQuery,
   Avatar,
+  Button,
 } from "@mui/material";
 
 const NBAPlayerStats = () => {
@@ -20,6 +21,7 @@ const NBAPlayerStats = () => {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [playerStats, setPlayerStats] = useState(null);
+  const [showMore, setShowMore] = useState(false);
   const isMobile = useMediaQuery("(max-width:600px)");
 
   const getPlayerImagePath = (playerId) => {
@@ -45,13 +47,31 @@ const NBAPlayerStats = () => {
 
   const fetchPlayerStats = async (playerId) => {
     try {
+      // When fetching initial player stats, always get 10 games
       const response = await fetch(
-        `http://localhost:8000/players/${playerId}/last10`
+        `http://localhost:8000/players/${playerId}/games?last_n_games=10`
       );
       const data = await response.json();
       setPlayerStats(data);
     } catch (error) {
       console.error("Error fetching player stats:", error);
+    }
+  };
+
+  const handleShowMore = () => {
+    setShowMore(true);
+    if (selectedPlayer) {
+      // Create new fetch URL with 25 games explicitly
+      fetch(
+        `http://localhost:8000/players/${selectedPlayer.person_id}/games?last_n_games=25`
+      )
+        .then((response) => response.json())
+        .then((data) => {
+          setPlayerStats(data);
+        })
+        .catch((error) => {
+          console.error("Error fetching extended stats:", error);
+        });
     }
   };
 
@@ -79,6 +99,7 @@ const NBAPlayerStats = () => {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          gap: 2,
         }}
       >
         <Autocomplete
@@ -92,6 +113,7 @@ const NBAPlayerStats = () => {
           }}
           onChange={(event, newValue) => {
             setSelectedPlayer(newValue);
+            setShowMore(false); // Reset show more state when selecting new player
             if (newValue) {
               fetchPlayerStats(newValue.person_id);
             }
@@ -112,15 +134,6 @@ const NBAPlayerStats = () => {
               },
               "&.Mui-focused fieldset": {
                 borderColor: "#64b5f6",
-              },
-            },
-            "& .MuiAutocomplete-listbox": {
-              backgroundColor: "#262626",
-              "& li": {
-                color: "white",
-                "&:hover": {
-                  backgroundColor: "#2d2d2d",
-                },
               },
             },
           }}
@@ -154,6 +167,7 @@ const NBAPlayerStats = () => {
             margin: "0 auto",
           }}
         >
+          {/* Player Info Header */}
           <Box
             sx={{
               display: "flex",
@@ -195,18 +209,43 @@ const NBAPlayerStats = () => {
             </Box>
           </Box>
 
-          <Typography
-            variant="h6"
+          <Box
             sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               mb: 2,
-              color: "white",
-              fontWeight: 600,
-              fontSize: isMobile ? "1rem" : "1.1rem",
             }}
           >
-            Last 20 Games
-          </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                color: "white",
+                fontWeight: 600,
+                fontSize: isMobile ? "1rem" : "1.1rem",
+              }}
+            >
+              Last {showMore ? 25 : 10} Games
+            </Typography>
+            {!showMore && (
+              <Button
+                onClick={handleShowMore}
+                variant="outlined"
+                sx={{
+                  color: "#64b5f6",
+                  borderColor: "#64b5f6",
+                  "&:hover": {
+                    borderColor: "#90caf9",
+                    backgroundColor: "rgba(100, 181, 246, 0.08)",
+                  },
+                }}
+              >
+                Show More
+              </Button>
+            )}
+          </Box>
 
+          {/* Stats Table */}
           <TableContainer
             component={Paper}
             sx={{
@@ -294,7 +333,7 @@ const NBAPlayerStats = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {playerStats.last_10_games.map((game, index) => (
+                {playerStats?.games?.map((game, index) => (
                   <TableRow
                     key={index}
                     sx={{
