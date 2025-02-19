@@ -21,7 +21,7 @@ const PlayByPlay = ({ gameId }) => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const socketRef = useRef(null);
   const isMobile = useMediaQuery("(max-width:600px)");
-  console.log(actions)
+  console.log(actions);
 
   useEffect(() => {
     setLoading(true);

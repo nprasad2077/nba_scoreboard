@@ -11,12 +11,9 @@ import {
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 
-// Import existing components
 import BoxScore from "./BoxScore";
 import PlayByPlay from "./PlayByPlay";
 
-import SimpleBoxScore from "./SimpleBoxScore";
-import EnhancedBoxScore from "./EnhancedBoxScore";
 
 const GameDetailsModal = ({ gameId, open, onClose }) => {
   const [activeTab, setActiveTab] = useState(0);
