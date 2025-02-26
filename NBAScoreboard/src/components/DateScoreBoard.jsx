@@ -1,7 +1,5 @@
 // DateScoreBoard.jsx
 import React, { useState, useEffect } from "react";
-import BoxScore from "./BoxScore";
-import ConnectionIndicator from "./ConnectionIndicator";
 import GameDetailsModal from "./GameDetailsModal";
 import NBA from "../assets/nba_logos/NBA_logo.svg";
 import {

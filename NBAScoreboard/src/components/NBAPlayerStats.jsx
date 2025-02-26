@@ -33,7 +33,7 @@ const NBAPlayerStats = () => {
     if (query.length >= 2) {
       try {
         const response = await fetch(
-          `http://localhost:8000/players/search/?query=${query}`
+          `http://localhost:8000/api/v1/players/search/?query=${query}`
         );
         const data = await response.json();
         setSearchResults(data);
@@ -49,7 +49,7 @@ const NBAPlayerStats = () => {
     try {
       // When fetching initial player stats, always get 10 games
       const response = await fetch(
-        `http://localhost:8000/players/${playerId}/games?last_n_games=10`
+        `http://localhost:8000/api/v1/players/${playerId}/games?last_n_games=10`
       );
       const data = await response.json();
       setPlayerStats(data);
@@ -63,7 +63,7 @@ const NBAPlayerStats = () => {
     if (selectedPlayer) {
       // Create new fetch URL with 25 games explicitly
       fetch(
-        `http://localhost:8000/players/${selectedPlayer.person_id}/games?last_n_games=25`
+        `http://localhost:8000/api/v1/players/${selectedPlayer.person_id}/games?last_n_games=25`
       )
         .then((response) => response.json())
         .then((data) => {
