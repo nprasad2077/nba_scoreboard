@@ -1,7 +1,6 @@
 // ScoreBoard.jsx
 import React, { useState, useEffect } from "react";
 import ConnectionIndicator from "./ConnectionIndicator";
-import GameDetailsDialog from "./GameDetailsDialog";
 import GameDetailsModal from "./GameDetailsModal";
 // (Optional) If you still use these elsewhere, keep them; otherwise you can remove:
 // import BoxScore from "./BoxScore";

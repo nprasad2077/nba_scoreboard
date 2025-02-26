@@ -24,8 +24,10 @@ from app.schemas.scoreboard import (
 
 logger = logging.getLogger(__name__)
 
+
 class ScoreboardManager:
     """Manages live scoreboard data and WebSocket connections."""
+
     def __init__(self):
         self.active_connections: Set[WebSocket] = set()
         self.current_games: Dict[str, Any] = {}
@@ -57,8 +59,10 @@ class ScoreboardManager:
             logger.error(f"Error sending initial games data: {e}")
             raise
 
+
 class PlayByPlayManager:
     """Manages play-by-play WebSocket connections for individual games."""
+
     def __init__(self):
         self.active_connections: Dict[str, Set[WebSocket]] = {}
         self.last_data: Dict[str, Any] = {}
@@ -73,7 +77,9 @@ class PlayByPlayManager:
                 self.active_connections[game_id] = set()
             self.active_connections[game_id].add(websocket)
             if game_id not in self.tasks:
-                self.tasks[game_id] = asyncio.create_task(self._poll_playbyplay(game_id))
+                self.tasks[game_id] = asyncio.create_task(
+                    self._poll_playbyplay(game_id)
+                )
 
     async def disconnect(self, websocket: WebSocket, game_id: str):
         """Remove a WebSocket connection for a specific game."""
@@ -103,6 +109,7 @@ class PlayByPlayManager:
 
     async def _poll_playbyplay(self, game_id: str):
         from nba_api.live.nba.endpoints import playbyplay  # typically imported here
+
         logger.info(f"Starting PlayByPlay polling for {game_id}")
         while True:
             try:
@@ -113,14 +120,20 @@ class PlayByPlayManager:
 
                 current_data = p.get_dict()
                 # Fallback: if current_data is empty or missing a nonempty "plays" key and p has a "games" attribute, try that
-                if (not current_data or not current_data.get("plays")) and hasattr(p, "games"):
-                    logger.debug("No plays found using p.get_dict(); trying p.games.get_dict()")
+                if (not current_data or not current_data.get("plays")) and hasattr(
+                    p, "games"
+                ):
+                    logger.debug(
+                        "No plays found using p.get_dict(); trying p.games.get_dict()"
+                    )
                     current_data = p.games.get_dict()
 
                 last = self.last_data.get(game_id)
                 if not last or (last != current_data):
                     self.last_data[game_id] = current_data
-                    await self.broadcast_to_game(game_id, current_data)  # Updated method call
+                    await self.broadcast_to_game(
+                        game_id, current_data
+                    )  # Updated method call
                 await asyncio.sleep(0.2)
             except asyncio.CancelledError:
                 logger.info(f"Canceling PlayByPlay polling for {game_id}")
@@ -130,10 +143,8 @@ class PlayByPlayManager:
                 await asyncio.sleep(1)
 
 
-
-
-
 # Helper functions for data processing
+
 
 async def get_live_scoreboard() -> ScoreboardResponse:
     """
@@ -147,21 +158,21 @@ async def get_live_scoreboard() -> ScoreboardResponse:
         games = []
         for game in games_data:
             home_team = TeamGameInfo(
-                team_id=game["homeTeam"]["teamId"],
+                team_id=str(game["homeTeam"]["teamId"]),
                 team_name=game["homeTeam"]["teamName"],
                 team_city=game["homeTeam"]["teamCity"],
                 team_tricode=game["homeTeam"]["teamTricode"],
                 score=game["homeTeam"].get("score", 0),
             )
             away_team = TeamGameInfo(
-                team_id=game["awayTeam"]["teamId"],
+                team_id=str(game["awayTeam"]["teamId"]),
                 team_name=game["awayTeam"]["teamName"],
                 team_city=game["awayTeam"]["teamCity"],
                 team_tricode=game["awayTeam"]["teamTricode"],
                 score=game["awayTeam"].get("score", 0),
             )
             game_brief = GameBrief(
-                game_id=game["gameId"],
+                game_id=str(game["gameId"]),
                 game_status=game["gameStatus"],
                 period=game.get("period", 0),
                 clock=game.get("gameClock"),
@@ -175,6 +186,7 @@ async def get_live_scoreboard() -> ScoreboardResponse:
         logger.error(f"Error fetching live scoreboard: {e}")
         raise
 
+
 async def get_past_scoreboard(date_str: str) -> List[GameBrief]:
     """
     Get scoreboard data for a past date.
@@ -185,15 +197,19 @@ async def get_past_scoreboard(date_str: str) -> List[GameBrief]:
     """
     try:
         from nba_api.stats.endpoints import leaguegamefinder
+
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         date_formatted = date_obj.strftime("%m/%d/%Y")
         games_df = leaguegamefinder.LeagueGameFinder(
-            date_from_nullable=date_formatted, date_to_nullable=date_formatted
+            date_from_nullable=date_formatted,
+            date_to_nullable=date_formatted,
+            league_id_nullable="00"
         ).get_data_frames()[0]
         return process_past_games(games_df)
     except Exception as e:
         logger.error(f"Error fetching past scoreboard: {e}")
         raise
+
 
 async def get_box_score(game_id: str) -> GameBoxScore:
     """
@@ -212,6 +228,7 @@ async def get_box_score(game_id: str) -> GameBoxScore:
         logger.error(f"Error fetching box score for game {game_id}: {e}")
         raise
 
+
 async def get_play_by_play(game_id: str) -> PlayByPlayResponse:
     """
     Get play-by-play data for a specific game.
@@ -226,6 +243,7 @@ async def get_play_by_play(game_id: str) -> PlayByPlayResponse:
     except Exception as e:
         logger.error(f"Error fetching play-by-play for game {game_id}: {e}")
         raise
+
 
 def process_past_games(games_df) -> List[GameBrief]:
     """
@@ -248,14 +266,14 @@ def process_past_games(games_df) -> List[GameBrief]:
             team_name=away_row["TEAM_NAME"],
             team_city="",  # Placeholder as TEAM_CITY is not provided
             team_tricode=away_row["TEAM_ABBREVIATION"],
-            score=int(away_row["PTS"])
+            score=int(away_row["PTS"]),
         )
         home_team = TeamGameInfo(
             team_id=str(home_row["TEAM_ID"]),
             team_name=home_row["TEAM_NAME"],
             team_city="",
             team_tricode=home_row["TEAM_ABBREVIATION"],
-            score=int(home_row["PTS"])
+            score=int(home_row["PTS"]),
         )
         game_brief = GameBrief(
             game_id=str(game_id),
@@ -269,6 +287,7 @@ def process_past_games(games_df) -> List[GameBrief]:
         games.append(game_brief)
     return games
 
+
 def process_box_score(box_score_data: Dict) -> GameBoxScore:
     """
     Process box score data into GameBoxScore object.
@@ -277,6 +296,7 @@ def process_box_score(box_score_data: Dict) -> GameBoxScore:
     Returns:
         GameBoxScore object with detailed statistics
     """
+
     def process_team(team_data: Dict) -> TeamBoxScore:
         players = []
         for player in team_data.get("players", []):
@@ -312,6 +332,7 @@ def process_box_score(box_score_data: Dict) -> GameBoxScore:
             team_tricode=team_data.get("teamTricode", ""),
             players=players,
         )
+
     home_team = process_team(box_score_data.get("homeTeam", {}))
     away_team = process_team(box_score_data.get("awayTeam", {}))
     return GameBoxScore(
@@ -322,6 +343,7 @@ def process_box_score(box_score_data: Dict) -> GameBoxScore:
         home_team=home_team,
         away_team=away_team,
     )
+
 
 def process_play_by_play(pbp_data: Dict) -> PlayByPlayResponse:
     """
@@ -349,6 +371,7 @@ def process_play_by_play(pbp_data: Dict) -> PlayByPlayResponse:
         clock=pbp_data.get("gameClock"),
         events=events,
     )
+
 
 # Global instances of managers
 scoreboard_manager = ScoreboardManager()
