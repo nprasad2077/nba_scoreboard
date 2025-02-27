@@ -45,7 +45,7 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
     >
       {/* Header */}
       <Header
-        connected={isConnected}
+        isConnected={isConnected}
         lastUpdateTime={lastUpdateTime}
         title="Scoreboard"
       />

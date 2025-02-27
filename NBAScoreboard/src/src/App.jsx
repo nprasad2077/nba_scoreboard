@@ -6,9 +6,11 @@ import Box from "@mui/material/Box";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import ScoreboardIcon from '@mui/icons-material/Scoreboard';
+import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import Scoreboard from "./components/Scoreboard";
 import DateScoreBoard from "./components/DateScoreBoard";
 import NBAPlayerStats from "./components/NBAPlayerStats";
+import Standings from "./components/Standings";
 import { useState } from "react";
 import useWebSocket from "./hooks/useWebSocket";
 import darkTheme from './styles/theme'
@@ -74,6 +76,12 @@ function App() {
             id="scoreboard-tab-2"
             aria-controls="scoreboard-tabpanel-2"
           />
+          <Tab
+            icon={<LeaderboardIcon />}
+            label="Standings"
+            id="scoreboard-tab-3"
+            aria-controls="scoreboard-tabpanel-3"
+          />
         </Tabs>
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
           <TabPanel value={currentTab} index={0}>
@@ -88,6 +96,9 @@ function App() {
           </TabPanel>
           <TabPanel value={currentTab} index={2}>
             <NBAPlayerStats />
+          </TabPanel>
+          <TabPanel value={currentTab} index={3}>
+            <Standings />
           </TabPanel>
         </Box>
       </Box>

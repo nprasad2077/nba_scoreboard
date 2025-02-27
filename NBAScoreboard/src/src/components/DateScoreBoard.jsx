@@ -7,12 +7,12 @@ import dayjs from "dayjs";
 import GameDetailsModal from "./GameDetailsModal";
 import GameCategorySection from "./common/GameCategorySection";
 import Header from "./common/Header";
-import { categorizeGames } from "../utils/pastDateUtils";
+import { categorizeGames } from "../utils/dateUtils"; // Use dateUtils instead of pastDateUtils
 import { fetchHistoricalGames } from "../services/apiService";
 
 /**
  * Simple helper to transform the raw game data returned by the new endpoint
- * into the shape our UI expects (same as the “old” format).
+ * into the shape our UI expects (same as the "old" format).
  */
 function transformGames(rawGames) {
   return rawGames.map((g) => {
@@ -68,6 +68,9 @@ const DateSelector = ({ selectedDate, onDateChange }) => {
             },
           },
         }}
+        // Disable future dates
+        maxDate={dayjs().endOf('day')}
+        disableFuture={true}
       />
     </LocalizationProvider>
   );
@@ -85,25 +88,49 @@ const DateScoreBoard = () => {
 
   // Default date is yesterday
   const [selectedDate, setSelectedDate] = useState(dayjs().subtract(1, "day"));
-  const [lastUpdateTime, setLastUpdateTime] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
 
   /**
    * Fetch games data when date changes
    */
   useEffect(() => {
+    console.log("Date changed in useEffect:", selectedDate.format("YYYY-MM-DD"));
+    
     const loadGames = async () => {
       try {
+        console.log("Starting to fetch games for date:", selectedDate.format("YYYY-MM-DD"));
+        
         // Fetch the new raw data
         const rawGames = await fetchHistoricalGames(selectedDate);
+        
+        // Check if we have data
+        if (!rawGames || rawGames.length === 0) {
+          console.log("No games found for the selected date");
+          setGames([]);
+          return;
+        }
+
+        console.log("Raw games data:", rawGames);
+        
         // Transform so our UI code can handle it
         const transformed = transformGames(rawGames);
-        setGames(transformed);
-        setLastUpdateTime(new Date());
-        setIsConnected(true);
+        console.log("Transformed games:", transformed);
+        
+        // Apply time conversion if needed
+        const processedGames = transformed.map(game => {
+          // Convert game time to local time if needed
+          if (game.time && game.time.startsWith("Start:")) {
+            // Use the imported function from dateUtils
+            return {
+              ...game,
+              time: game.time // Already in the right format
+            };
+          }
+          return game;
+        });
+        
+        setGames(processedGames);
       } catch (error) {
         console.error("Error fetching historical games:", error);
-        setIsConnected(false);
       }
     };
 
@@ -112,6 +139,7 @@ const DateScoreBoard = () => {
 
   // Date change handler
   const handleDateChange = (newDate) => {
+    console.log("Date changed to:", newDate.format("YYYY-MM-DD"));
     setSelectedDate(newDate);
   };
 
@@ -120,6 +148,7 @@ const DateScoreBoard = () => {
 
   // Click handler for an in-progress or completed game => open modal
   const handleBoxScoreClick = (game) => {
+    console.log("Selected game for box score:", game);
     setSelectedGame(game);
     setBoxScoreOpen(true);
   };
@@ -133,24 +162,23 @@ const DateScoreBoard = () => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        maxWidth: "1200px !important",
+        maxWidth: "1400px !important",
       }}
     >
-      {/* Header with date selector */}
-      <Box
-        sx={{
-          mb: isMobile ? 2 : 3,
-          display: "flex", 
-          flexDirection: "column",
-          gap: 2
+      {/* Header */}
+      <Header
+        title="Box Scores"
+      />
+      
+      {/* Date Picker - Moved to a more user-friendly location */}
+      <Box 
+        sx={{ 
+          mb: isMobile ? 3 : 4,
+          display: "flex",
+          justifyContent: "flex-start",
+          mt: 2
         }}
       >
-        <Header
-          isConnected={isConnected}
-          lastUpdateTime={lastUpdateTime}
-          title="Box Scores"
-        />
-        
         <DateSelector
           selectedDate={selectedDate}
           onDateChange={handleDateChange}
@@ -158,27 +186,33 @@ const DateScoreBoard = () => {
       </Box>
 
       {/* Game Sections */}
-      <GameCategorySection 
-        games={liveGames} 
-        title="Live Games" 
-        onBoxScoreClick={handleBoxScoreClick} 
-        isLive
-      />
+      {liveGames.length > 0 && (
+        <GameCategorySection 
+          games={liveGames} 
+          title="Live Games" 
+          onBoxScoreClick={handleBoxScoreClick} 
+          isLive
+        />
+      )}
       
-      <GameCategorySection 
-        games={scheduledGames} 
-        title="Upcoming Games" 
-        onBoxScoreClick={handleBoxScoreClick}
-      />
+      {scheduledGames.length > 0 && (
+        <GameCategorySection 
+          games={scheduledGames} 
+          title="Upcoming Games" 
+          onBoxScoreClick={handleBoxScoreClick}
+        />
+      )}
       
-      <GameCategorySection 
-        games={completedGames} 
-        title="Completed Games" 
-        onBoxScoreClick={handleBoxScoreClick}
-        collapsible
-        expanded={showCompletedGames}
-        onToggleExpand={() => setShowCompletedGames(!showCompletedGames)}
-      />
+      {completedGames.length > 0 && (
+        <GameCategorySection 
+          games={completedGames} 
+          title="Completed Games" 
+          onBoxScoreClick={handleBoxScoreClick}
+          collapsible
+          expanded={showCompletedGames}
+          onToggleExpand={() => setShowCompletedGames(!showCompletedGames)}
+        />
+      )}
 
       {/* Game Details Modal */}
       <GameDetailsModal

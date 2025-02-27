@@ -1,18 +1,15 @@
 import React from "react";
 import { Box, Typography, useMediaQuery } from "@mui/material";
-import ConnectionIndicator from "../ConnectionIndicator";
 import NBA from "../../assets/nba_logos/NBA_logo.svg";
 
 /**
  * Header component for scoreboards
  * 
  * @param {Object} props - Component props
- * @param {boolean} props.isConnected - Connection status
- * @param {Date} props.lastUpdateTime - Time of last update
  * @param {string} props.title - Title to display
  * @returns {JSX.Element} - Rendered component
  */
-const Header = ({ isConnected, lastUpdateTime, title = "Scoreboard" }) => {
+const Header = ({ title = "Scoreboard" }) => {
   const isMobile = useMediaQuery("(max-width:600px)");
 
   return (
@@ -49,25 +46,6 @@ const Header = ({ isConnected, lastUpdateTime, title = "Scoreboard" }) => {
         >
           {title}
         </Typography>
-      </Box>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <ConnectionIndicator connected={isConnected} />
-        {lastUpdateTime && (
-          <Typography
-            variant="caption"
-            sx={{
-              opacity: 0.7,
-              fontSize: isMobile ? "0.7rem" : "0.75rem",
-            }}
-          >
-            Last update:{" "}
-            {lastUpdateTime.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
-          </Typography>
-        )}
       </Box>
     </Box>
   );

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import GameDetailsModal from "./GameDetailsModal";
 import NBA from "../assets/nba_logos/NBA_logo.svg";
+import ConnectionIndicator from "./ConnectionIndicator";
 import {
   Box,
   Card,
@@ -86,7 +87,7 @@ const teamLogos = {
   WAS,
 };
 
-const Header = ({ lastUpdateTime, isMobile, selectedDate, onDateChange }) => (
+const Header = ({ isMobile, isConnected }) => (
   <Box
     sx={{
       display: "flex",
@@ -121,37 +122,7 @@ const Header = ({ lastUpdateTime, isMobile, selectedDate, onDateChange }) => (
         Box Scores
       </Typography>
     </Box>
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <DatePicker
-        label="Select Date"
-        value={selectedDate}
-        onChange={onDateChange}
-        sx={{
-          "& .MuiOutlinedInput-root": {
-            backgroundColor: "#262626",
-            color: "white",
-            "&:hover": {
-              backgroundColor: "#2d2d2d",
-            },
-            "& fieldset": {
-              borderColor: "rgba(255, 255, 255, 0.08)",
-            },
-            "&:hover fieldset": {
-              borderColor: "rgba(255, 255, 255, 0.2)",
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#64b5f6",
-            },
-          },
-          "& .MuiInputLabel-root": {
-            color: "rgba(255, 255, 255, 0.7)",
-            "&.Mui-focused": {
-              color: "#64b5f6",
-            },
-          },
-        }}
-      />
-    </LocalizationProvider>
+    <ConnectionIndicator isConnected={isConnected} />
   </Box>
 );
 
@@ -250,7 +221,6 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
           sx={{
             fontSize: isMobile ? "1rem" : "1.5rem",
             whiteSpace: "nowrap",
-            // Remove maxWidth and overflow handling since we're using conditional rendering
             color: "rgba(255, 255, 255, 0.95)",
           }}
         >
@@ -262,7 +232,7 @@ const TeamInfo = ({ teamName, tricode, score, isWinner, isHomeTeam }) => {
             sx={{
               color: isWinner ? "#64b5f6" : "rgba(255, 255, 255, 0.95)",
               fontWeight: isWinner ? 600 : 500,
-              fontSize: isMobile ? "1.5rem" : "2rem", // Increased from h5/h4 to specific sizes
+              fontSize: isMobile ? "1.5rem" : "2rem",
               lineHeight: 1,
               marginTop: "4px",
             }}
@@ -328,7 +298,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
       <CardContent
         sx={{
           position: "relative",
-          p: isMobile ? "16px !important" : "24px !important", // Increased padding
+          p: isMobile ? "16px !important" : "24px !important",
           height: "100%",
           "&:last-child": {
             paddingBottom: isMobile ? "16px !important" : "24px !important",
@@ -359,7 +329,6 @@ const GameCard = ({ game, onBoxScoreClick }) => {
               textAlign: "center",
             }}
           >
-            {/* Game Start Time Display e.g. 7:30 PM */}
             <Typography
               variant="body2"
               sx={{
@@ -367,7 +336,7 @@ const GameCard = ({ game, onBoxScoreClick }) => {
                 opacity: 0.5,
                 letterSpacing: "0.5px",
                 fontWeight: 400,
-                fontSize: isMobile ? "0.75rem" : "0.875rem",
+                fontSize: isMobile ? "0.875rem" : "1.25rem",
               }}
             >
               {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "}
@@ -530,74 +499,55 @@ const DateScoreBoard = () => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        maxWidth: "1200px !important",
+        maxWidth: "1400px !important",
       }}
     >
       {/* Header */}
-      <Box
-        sx={{
+      <Header
+        isMobile={isMobile}
+        isConnected={isConnected}
+      />
+      
+      {/* Date Picker - Moved to a more user-friendly location */}
+      <Box 
+        sx={{ 
+          mb: isMobile ? 3 : 4,
           display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          mb: isMobile ? 2 : 3,
+          justifyContent: "flex-start"
         }}
       >
-        {/* Title and Connection Status */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            backgroundColor: "rgba(0, 0, 0, 0.2)",
-            borderRadius: 1,
-            padding: isMobile ? "6px 12px" : "8px 16px",
-          }}
-        >
-          <Typography
-            variant={isMobile ? "subtitle1" : "h6"}
-            sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
-          >
-            NBA Box Scores
-          </Typography>
-          {/* <Box sx={{ display: "flex", alignItems: "center" }}>
-            <ConnectionIndicator connected={isConnected} />
-            {lastUpdateTime && (
-              <Typography
-                variant="caption"
-                sx={{
-                  opacity: 0.7,
-                  fontSize: isMobile ? "0.7rem" : "0.75rem",
-                }}
-              >
-                Last update:{" "}
-                {lastUpdateTime.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </Typography>
-            )}
-          </Box> */}
-        </Box>
-
-        {/* DatePicker */}
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DatePicker
             label="Select Date"
             value={selectedDate}
             onChange={handleDateChange}
             sx={{
-              bgcolor: "background.paper",
-              borderRadius: 1,
               "& .MuiOutlinedInput-root": {
+                backgroundColor: "#262626",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#2d2d2d",
+                },
                 "& fieldset": {
-                  borderColor: "rgba(255, 255, 255, 0.23)",
+                  borderColor: "rgba(255, 255, 255, 0.08)",
                 },
                 "&:hover fieldset": {
-                  borderColor: "rgba(255, 255, 255, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.2)",
+                },
+                "&.Mui-focused fieldset": {
+                  borderColor: "#64b5f6",
+                },
+              },
+              "& .MuiInputLabel-root": {
+                color: "rgba(255, 255, 255, 0.7)",
+                "&.Mui-focused": {
+                  color: "#64b5f6",
                 },
               },
             }}
+            // Disable future dates
+            maxDate={dayjs().endOf('day')}
+            disableFuture={true}
           />
         </LocalizationProvider>
       </Box>
