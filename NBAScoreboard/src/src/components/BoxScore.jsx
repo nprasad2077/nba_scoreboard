@@ -60,21 +60,29 @@ const getTeamAbbreviation = (teamCity, teamName) => {
 
 const headCells = [
   { id: "name", numeric: false, label: "PLAYER", width: "18%" },
-  { id: "minutes", numeric: false, label: "MIN", width: "12%" },
-  { id: "points", numeric: true, label: "PTS", width: "13.5%" },
-  { id: "reboundsTotal", numeric: true, label: "REB", width: "14%" },
-  { id: "assists", numeric: true, label: "AST", width: "13.5%" },
-  { id: "fieldGoals", numeric: true, label: "FG", width: "12%" },
-  { id: "threePointers", numeric: true, label: "3P", width: "11.5%" },
+  { id: "minutes", numeric: false, label: "MIN", width: "10%" },
+  { id: "points", numeric: true, label: "PTS", width: "10%" },
+  { id: "reboundsTotal", numeric: true, label: "REB", width: "10%" },
+  { id: "assists", numeric: true, label: "AST", width: "10%" },
+  { id: "fieldGoals", numeric: true, label: "FG", width: "15%" },
+  { id: "threePointers", numeric: true, label: "3P", width: "15%" },
   { id: "plusMinusPoints", numeric: true, label: "+/-", width: "12%" },
 ];
 
-const formatPlayerName = (fullName, isMobile) => {
+const formatPlayerName = (fullName, isMobile, isXsScreen) => {
   if (!isMobile) return fullName;
+  
   const nameParts = fullName.split(" ");
   if (nameParts.length < 2) return fullName;
+  
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(" ");
+  
+  if (isXsScreen) {
+    // First initial + last name, truncated if needed
+    return `${firstName[0]}. ${lastName.length > 6 ? lastName.substring(0, 6) + "." : lastName}`;
+  }
+  
   return `${firstName[0]}. ${lastName}`;
 };
 
@@ -122,7 +130,7 @@ function getComparator(order, orderBy) {
 }
 
 function EnhancedTableHead(props) {
-  const { order, orderBy, onRequestSort, isMobile } = props;
+  const { order, orderBy, onRequestSort, isMobile, isXsScreen } = props;
   const createSortHandler = (property) => (event) => {
     onRequestSort(event, property);
   };
@@ -140,8 +148,8 @@ function EnhancedTableHead(props) {
               color: "rgba(255, 255, 255, 0.95)",
               fontWeight: 600,
               width: headCell.width,
-              padding: isMobile ? "8px 4px" : "12px 16px",
-              fontSize: isMobile ? "0.75rem" : "0.875rem",
+              padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
+              fontSize: isXsScreen ? "0.6rem" : isMobile ? "0.7rem" : "0.875rem",
               borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
               whiteSpace: "nowrap",
             }}
@@ -183,8 +191,17 @@ function formatMinutes(minutes) {
     .padStart(2, "0")}`;
 }
 
+function formatFractionalStat(made, attempted, isMobile, isXsScreen) {
+  if (isXsScreen) {
+    return `${made}-${attempted}`;
+  }
+  return `${made}-${attempted}`;
+}
+
 function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
   const isMobile = useMediaQuery("(max-width:600px)");
+  const isXsScreen = useMediaQuery("(max-width:430px)");
+  const isPortrait = useMediaQuery("(orientation: portrait)");
   const [order, setOrder] = useState("desc");
   const [orderBy, setOrderBy] = useState("minutes");
   const [showAll, setShowAll] = useState(false);
@@ -206,12 +223,12 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
 
   const displayedPlayers = showAll
     ? sortedPlayers
-    : sortedPlayers.slice(0, isMobile ? 5 : 8);
+    : sortedPlayers.slice(0, isXsScreen ? 5 : isMobile ? 5 : 8);
 
   const teamAbbreviation = getTeamAbbreviation(team.teamCity, team.teamName);
 
   return (
-    <Box sx={{ width: "100%", mb: 4 }}>
+    <Box sx={{ width: "100%", mb: 2 }}>
       <Paper
         sx={{
           width: "100%",
@@ -225,12 +242,12 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
       >
         <Toolbar
           sx={{
-            pl: isMobile ? 2 : 3,
-            pr: isMobile ? 1 : 2,
-            minHeight: isMobile ? "60px" : "72px",
+            pl: isXsScreen ? 1 : isMobile ? 1.5 : 3,
+            pr: isXsScreen ? 0.5 : isMobile ? 1 : 2,
+            minHeight: isXsScreen ? "44px" : isMobile ? "50px" : "72px",
             display: "flex",
             alignItems: "center",
-            gap: 2,
+            gap: isXsScreen ? 0.5 : 1,
             borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
             backgroundColor: "#101010",
           }}
@@ -240,7 +257,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
             src={teamLogos[teamAbbreviation]}
             alt={`${team.teamCity} ${team.teamName} logo`}
             sx={{
-              height: isMobile ? "32px" : "40px",
+              height: isXsScreen ? "24px" : isMobile ? "28px" : "40px",
               width: "auto",
               objectFit: "contain",
             }}
@@ -248,21 +265,24 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
           <Typography
             sx={{
               flex: "1 1 100%",
-              fontSize: isMobile ? "1rem" : "1.25rem",
+              fontSize: isXsScreen ? "0.8rem" : isMobile ? "0.9rem" : "1.25rem",
               fontWeight: 600,
               color: "white",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
             variant="h6"
             component="div"
           >
-            {teamName}
+            {isXsScreen ? team.teamName : teamName}
             {scoreboardScore && (
               <Typography
                 component="span"
                 sx={{
-                  ml: 2,
+                  ml: isXsScreen ? 0.5 : 1,
                   color: "#64b5f6",
-                  fontSize: isMobile ? "1.25rem" : "1.5rem",
+                  fontSize: isXsScreen ? "0.9rem" : isMobile ? "1rem" : "1.5rem",
                   fontWeight: 600,
                 }}
               >
@@ -274,11 +294,12 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
 
         <TableContainer>
           <Table
+            size={isXsScreen ? "small" : isMobile ? "small" : "medium"}
             sx={{
               tableLayout: "fixed",
               "& .MuiTableCell-root": {
-                padding: isMobile ? "8px 4px" : "12px 16px",
-                fontSize: isMobile ? "0.75rem" : "0.875rem",
+                padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
+                fontSize: isXsScreen ? "0.65rem" : isMobile ? "0.7rem" : "0.875rem",
                 color: "rgba(255, 255, 255, 0.95)",
                 borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
               },
@@ -298,6 +319,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
               orderBy={orderBy}
               onRequestSort={handleRequestSort}
               isMobile={isMobile}
+              isXsScreen={isXsScreen}
             />
             <TableBody>
               {displayedPlayers.map((player, index) => (
@@ -323,15 +345,16 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                       position: "relative",
                       display: "flex",
                       alignItems: "center",
-                      gap: "8px",
+                      gap: isXsScreen ? "2px" : "4px",
+                      padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
                     }}
                   >
-                    {formatPlayerName(player.name, isMobile)}
+                    {formatPlayerName(player.name, isMobile, isXsScreen)}
                     {player.oncourt && (
                       <Box
                         sx={{
-                          width: "6px",
-                          height: "6px",
+                          width: "5px",
+                          height: "5px",
                           borderRadius: "50%",
                           backgroundColor: "#4caf50",
                           display: "inline-block",
@@ -340,7 +363,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                       />
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px" }}>
                     {formatMinutes(player.statistics.minutes)}
                   </TableCell>
                   <TableCell
@@ -349,6 +372,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                       color:
                         player.statistics.points >= 20 ? "#64b5f6" : "inherit",
                       fontWeight: player.statistics.points >= 20 ? 600 : 400,
+                      padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
                     }}
                   >
                     {player.statistics.points}
@@ -362,6 +386,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                           : "inherit",
                       fontWeight:
                         player.statistics.reboundsTotal >= 10 ? 600 : 400,
+                      padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
                     }}
                   >
                     {player.statistics.reboundsTotal}
@@ -372,15 +397,32 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                       color:
                         player.statistics.assists >= 10 ? "#64b5f6" : "inherit",
                       fontWeight: player.statistics.assists >= 10 ? 600 : 400,
+                      padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
                     }}
                   >
                     {player.statistics.assists}
                   </TableCell>
-                  <TableCell align="right">
-                    {`${player.statistics.fieldGoalsMade}-${player.statistics.fieldGoalsAttempted}`}
+                  <TableCell 
+                    align="right"
+                    sx={{ padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px" }}
+                  >
+                    {formatFractionalStat(
+                      player.statistics.fieldGoalsMade,
+                      player.statistics.fieldGoalsAttempted,
+                      isMobile,
+                      isXsScreen
+                    )}
                   </TableCell>
-                  <TableCell align="right">
-                    {`${player.statistics.threePointersMade}-${player.statistics.threePointersAttempted}`}
+                  <TableCell 
+                    align="right"
+                    sx={{ padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px" }}
+                  >
+                    {formatFractionalStat(
+                      player.statistics.threePointersMade,
+                      player.statistics.threePointersAttempted,
+                      isMobile,
+                      isXsScreen
+                    )}
                   </TableCell>
                   <TableCell
                     align="right"
@@ -395,6 +437,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                         Math.abs(player.statistics.plusMinusPoints) >= 15
                           ? 600
                           : 400,
+                      padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
                     }}
                   >
                     {player.statistics.plusMinusPoints > 0
@@ -408,12 +451,12 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
         </TableContainer>
 
         {/* Expand/Collapse Button */}
-        {activePlayers.length > (isMobile ? 5 : 8) && (
+        {activePlayers.length > (isXsScreen ? 5 : isMobile ? 5 : 8) && (
           <Box
             sx={{
               display: "flex",
               justifyContent: "center",
-              padding: 2,
+              padding: isXsScreen ? 0.5 : isMobile ? 1 : 2,
               borderTop: "1px solid rgba(255, 255, 255, 0.08)",
               backgroundColor: "#101010",
             }}
@@ -428,6 +471,8 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                 },
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: isXsScreen ? "0.7rem" : undefined,
+                padding: isXsScreen ? "2px 6px" : undefined,
               }}
             >
               {showAll ? "Show Less" : "Show All"}
@@ -445,6 +490,7 @@ const BoxScore = ({ game, open }) => {
   }
 
   const isMobile = useMediaQuery("(max-width:600px)");
+  const isXsScreen = useMediaQuery("(max-width:430px)");
   const [boxScore, setBoxScore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -477,8 +523,8 @@ const BoxScore = ({ game, open }) => {
     <Box
       sx={{
         width: "100%",
-        py: 2,
-        px: isMobile ? 1 : 3,
+        py: isXsScreen ? 0.5 : isMobile ? 1 : 2,
+        px: isXsScreen ? 0.25 : isMobile ? 0.5 : 3,
         backgroundColor: "#101010",
         overflow: "auto",
         height: "100%",
@@ -522,6 +568,11 @@ const BoxScore = ({ game, open }) => {
       )}
     </Box>
   );
+};
+
+BoxScore.propTypes = {
+  game: PropTypes.object,
+  open: PropTypes.bool,
 };
 
 export default BoxScore;

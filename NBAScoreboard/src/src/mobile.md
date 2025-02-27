@@ -1,0 +1,1 @@
+Lets work on making the component code in here mobile friendly and responsive. The first mobile size I want to focus on is the Iphone Pro Max sizes (430x932). Currently, the tabs in App.jsx are overflowing. In addition, the BoxScore component looks too compressed on screen. Lets focus on these two areas first.
