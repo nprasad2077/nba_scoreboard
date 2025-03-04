@@ -1,4 +1,11 @@
-import React, { useState } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  memo,
+  useRef,
+  useEffect,
+} from "react";
 import {
   Table,
   TableBody,
@@ -14,23 +21,257 @@ import {
   useMediaQuery,
   Avatar,
   Button,
+  CircularProgress,
 } from "@mui/material";
 
-const NBAPlayerStats = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
+// Debounce utility
+function debounce(fn, delay) {
+  let timerId;
+  return (...args) => {
+    clearTimeout(timerId);
+    timerId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// Memoized table cell
+const StyledTableCell = memo(({ children, sx = {}, ...props }) => (
+  <TableCell
+    sx={{
+      padding: { xs: "8px 4px", sm: "12px 16px" },
+      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+      ...sx,
+    }}
+    {...props}
+  >
+    {children}
+  </TableCell>
+));
+
+// Memoized row
+const GameRow = memo(({ game, isMobile, formatDate }) => {
+  const isPtsHighlighted = game.pts >= 20;
+  const isRebHighlighted = game.reb >= 10;
+  const isAstHighlighted = game.ast >= 10;
+  const isPlusMinusHighlighted = Math.abs(game.plus_minus) >= 15;
+
+  const formattedFgPct = (game.fg_pct * 100).toFixed(1);
+  const formattedFg3Pct = (game.fg3_pct * 100).toFixed(1);
+  const formattedFtPct = (game.ft_pct * 100).toFixed(1);
+  const formattedDate = formatDate(game.game_date);
+  const plusMinusDisplay =
+    game.plus_minus > 0 ? `+${game.plus_minus}` : game.plus_minus;
+
+  return (
+    <TableRow
+      sx={{
+        backgroundColor: (theme) =>
+          game.index % 2 === 0 ? "rgba(255, 255, 255, 0.01)" : "transparent",
+        "&:hover": {
+          backgroundColor: "rgba(255, 255, 255, 0.03)",
+        },
+      }}
+    >
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {formattedDate}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {game.matchup}
+      </StyledTableCell>
+      <StyledTableCell
+        sx={{
+          color: game.wl === "W" ? "#4caf50" : "#f44336",
+          fontWeight: 600,
+        }}
+      >
+        {game.wl}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {Math.round(game.min)}
+      </StyledTableCell>
+      <StyledTableCell
+        sx={{
+          color: isPtsHighlighted ? "#64b5f6" : "rgba(255, 255, 255, 0.87)",
+          fontWeight: isPtsHighlighted ? 600 : 400,
+        }}
+      >
+        {game.pts}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {`${game.fgm}-${game.fga}`}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {formattedFgPct}%
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {`${game.fg3m}-${game.fg3a}`}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {formattedFg3Pct}%
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {`${game.ftm}-${game.fta}`}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {formattedFtPct}%
+      </StyledTableCell>
+      <StyledTableCell
+        sx={{
+          color: isRebHighlighted ? "#64b5f6" : "rgba(255, 255, 255, 0.87)",
+          fontWeight: isRebHighlighted ? 600 : 400,
+        }}
+      >
+        {game.reb}
+      </StyledTableCell>
+      <StyledTableCell
+        sx={{
+          color: isAstHighlighted ? "#64b5f6" : "rgba(255, 255, 255, 0.87)",
+          fontWeight: isAstHighlighted ? 600 : 400,
+        }}
+      >
+        {game.ast}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {game.stl}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {game.blk}
+      </StyledTableCell>
+      <StyledTableCell sx={{ color: "rgba(255, 255, 255, 0.87)" }}>
+        {game.tov}
+      </StyledTableCell>
+      <StyledTableCell
+        sx={{
+          color: game.plus_minus > 0 ? "#4caf50" : "#f44336",
+          fontWeight: isPlusMinusHighlighted ? 600 : 400,
+        }}
+      >
+        {plusMinusDisplay}
+      </StyledTableCell>
+    </TableRow>
+  );
+});
+
+// Table header
+const TableHeader = memo(({ isMobile }) => {
+  const headers = [
+    "Date",
+    "Matchup",
+    "W/L",
+    "MIN",
+    "PTS",
+    "FGM-FGA",
+    "FG%",
+    "3PM-3PA",
+    "3P%",
+    "FTM-FTA",
+    "FT%",
+    "REB",
+    "AST",
+    "STL",
+    "BLK",
+    "TOV",
+    "+/-",
+  ];
+
+  return (
+    <TableHead>
+      <TableRow>
+        {headers.map((header) => (
+          <TableCell
+            key={header}
+            sx={{
+              backgroundColor: "#101010",
+              color: "rgba(255, 255, 255, 0.95)",
+              fontWeight: 600,
+              fontSize: isMobile ? "0.75rem" : "0.875rem",
+              padding: isMobile ? "8px 4px" : "12px 16px",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {header}
+          </TableCell>
+        ))}
+      </TableRow>
+    </TableHead>
+  );
+});
+
+// Player info
+const PlayerInfo = memo(({ playerInfo, getPlayerImagePath, isMobile }) => {
+  if (!playerInfo) return null;
+
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 2 }}>
+      <Avatar
+        src={getPlayerImagePath(playerInfo.person_id)}
+        alt={playerInfo.display_name}
+        sx={{
+          width: isMobile ? 60 : 80,
+          height: isMobile ? 60 : 80,
+          border: "2px solid rgba(255, 255, 255, 0.08)",
+          backgroundColor: "#262626",
+        }}
+      />
+      <Box>
+        <Typography
+          variant="h6"
+          sx={{
+            color: "white",
+            fontWeight: 600,
+            fontSize: isMobile ? "1.1rem" : "1.25rem",
+          }}
+        >
+          {playerInfo.display_name}
+        </Typography>
+        <Typography
+          sx={{
+            color: "#64b5f6",
+            fontSize: isMobile ? "1rem" : "1.1rem",
+            fontWeight: 500,
+          }}
+        >
+          {playerInfo.team_abbreviation}
+        </Typography>
+      </Box>
+    </Box>
+  );
+});
+
+function NBAPlayerStats() {
+  const [searchTerm, setSearchTerm] = useState("");
+  // --- Separate states for player info and games
+  const [playerInfo, setPlayerInfo] = useState(null);
+  const [games, setGames] = useState([]);
+
   const [searchResults, setSearchResults] = useState([]);
-  const [playerStats, setPlayerStats] = useState(null);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+
   const [showMore, setShowMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const isMobile = useMediaQuery("(max-width:600px)");
 
-  const getPlayerImagePath = (playerId) => {
+  // Player image path
+  const getPlayerImagePath = useCallback((playerId) => {
     if (!playerId) return null;
     return `https://cdn.nba.com/headshots/nba/latest/1040x760/${playerId}.png`;
-  };
+  }, []);
 
-  const searchPlayers = async (query) => {
-    if (query.length >= 2) {
+  // Date formatting
+  const formatDate = useCallback((dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  }, []);
+
+  // Debounced search
+  const debouncedSearch = useRef(
+    debounce(async (query) => {
+      if (query.length < 2) {
+        setSearchResults([]);
+        return;
+      }
       try {
         const response = await fetch(
           `http://localhost:8000/api/v1/players/search/?query=${query}`
@@ -40,44 +281,116 @@ const NBAPlayerStats = () => {
       } catch (error) {
         console.error("Error searching players:", error);
       }
-    } else {
-      setSearchResults([]);
-    }
-  };
+    }, 400)
+  ).current;
 
-  const fetchPlayerStats = async (playerId) => {
-    try {
-      // When fetching initial player stats, always get 10 games
-      const response = await fetch(
-        `http://localhost:8000/api/v1/players/${playerId}/games?last_n_games=10`
-      );
-      const data = await response.json();
-      setPlayerStats(data);
-    } catch (error) {
-      console.error("Error fetching player stats:", error);
-    }
-  };
+  // Trigger debounced search on searchTerm changes
+  useEffect(() => {
+    debouncedSearch(searchTerm);
+  }, [searchTerm, debouncedSearch]);
 
-  const handleShowMore = () => {
+  // Fetch player stats
+  const fetchPlayerStats = useCallback(
+    async (playerId, gamesCount = 10) => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/v1/players/${playerId}/games?last_n_games=${gamesCount}`
+        );
+        const data = await response.json();
+
+        // If the backend returns a similar structure:
+        // {
+        //   player_info: {...},
+        //   games: [{...}, ...]
+        // }
+        if (data?.player_info) {
+          // Update the player info if it's new or missing
+          setPlayerInfo(data.player_info);
+        }
+
+        if (Array.isArray(data?.games)) {
+          const annotatedGames = data.games.map((g, idx) => ({
+            ...g,
+            index: idx,
+          }));
+          setGames(annotatedGames);
+        }
+      } catch (error) {
+        console.error("Error fetching player stats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  // When user selects a player
+  const handlePlayerChange = useCallback(
+    (event, newValue) => {
+      if (!newValue) return;
+      setSelectedPlayer(newValue);
+      setShowMore(false);
+      fetchPlayerStats(newValue.person_id);
+    },
+    [fetchPlayerStats]
+  );
+
+  // Show More
+  const handleShowMore = useCallback(() => {
     setShowMore(true);
     if (selectedPlayer) {
-      // Create new fetch URL with 25 games explicitly
-      fetch(
-        `http://localhost:8000/api/v1/players/${selectedPlayer.person_id}/games?last_n_games=25`
-      )
-        .then((response) => response.json())
-        .then((data) => {
-          setPlayerStats(data);
-        })
-        .catch((error) => {
-          console.error("Error fetching extended stats:", error);
-        });
+      // Fetch more games (25)
+      fetchPlayerStats(selectedPlayer.person_id, 25);
     }
-  };
+  }, [fetchPlayerStats, selectedPlayer]);
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // Column widths
+  const columnWidths = useMemo(
+    () => [
+      { width: "8%" },
+      { width: "12%" },
+      { width: "4%" },
+      { width: "5%" },
+      { width: "5%" },
+      { width: "7%" },
+      { width: "5%" },
+      { width: "7%" },
+      { width: "5%" },
+      { width: "7%" },
+      { width: "5%" },
+      { width: "5%" },
+      { width: "5%" },
+      { width: "5%" },
+      { width: "5%" },
+      { width: "5%" },
+      { width: "5%" },
+    ],
+    []
+  );
+
+  const TableColgroup = useMemo(
+    () => (
+      <colgroup>
+        {columnWidths.map((col, index) => (
+          <col key={index} style={{ width: col.width }} />
+        ))}
+      </colgroup>
+    ),
+    [columnWidths]
+  );
+
+  // Memoized rows
+  const tableRows = useMemo(() => {
+    return games.map((game, index) => (
+      <GameRow
+        key={`${game.game_date}-${index}`}
+        game={game}
+        isMobile={isMobile}
+        formatDate={formatDate}
+      />
+    ));
+  }, [games, isMobile, formatDate]);
 
   return (
     <Box
@@ -92,7 +405,7 @@ const NBAPlayerStats = () => {
         overflow: "hidden",
       }}
     >
-      {/* Search Box */}
+      {/* SEARCH FIELD */}
       <Box
         sx={{
           mb: 4,
@@ -108,16 +421,10 @@ const NBAPlayerStats = () => {
             `${option.display_name} - ${option.team_abbreviation}`
           }
           onInputChange={(event, newInputValue) => {
-            setSearchQuery(newInputValue);
-            searchPlayers(newInputValue);
+            setSearchTerm(newInputValue);
           }}
-          onChange={(event, newValue) => {
-            setSelectedPlayer(newValue);
-            setShowMore(false); // Reset show more state when selecting new player
-            if (newValue) {
-              fetchPlayerStats(newValue.person_id);
-            }
-          }}
+          onChange={handlePlayerChange}
+          blurOnSelect
           sx={{
             width: "100%",
             maxWidth: 800,
@@ -158,7 +465,15 @@ const NBAPlayerStats = () => {
         />
       </Box>
 
-      {playerStats && (
+      {/* LOADING INDICATOR */}
+      {isLoading && (
+        <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
+          <CircularProgress sx={{ color: "#64b5f6" }} />
+        </Box>
+      )}
+
+      {/* PLAYER INFO + TABLE */}
+      {!isLoading && playerInfo && (
         <Box
           sx={{
             overflow: "auto",
@@ -167,48 +482,14 @@ const NBAPlayerStats = () => {
             margin: "0 auto",
           }}
         >
-          {/* Player Info Header */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              mb: 3,
-              gap: 2,
-            }}
-          >
-            <Avatar
-              src={getPlayerImagePath(playerStats?.player_info?.person_id)}
-              alt={playerStats?.player_info?.display_name}
-              sx={{
-                width: isMobile ? 60 : 80,
-                height: isMobile ? 60 : 80,
-                border: "2px solid rgba(255, 255, 255, 0.08)",
-                backgroundColor: "#262626",
-              }}
-            />
-            <Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  color: "white",
-                  fontWeight: 600,
-                  fontSize: isMobile ? "1.1rem" : "1.25rem",
-                }}
-              >
-                {playerStats.player_info.display_name}
-              </Typography>
-              <Typography
-                sx={{
-                  color: "#64b5f6",
-                  fontSize: isMobile ? "1rem" : "1.1rem",
-                  fontWeight: 500,
-                }}
-              >
-                {playerStats.player_info.team_abbreviation}
-              </Typography>
-            </Box>
-          </Box>
+          {/* Player Header: remains displayed regardless of game fetch */}
+          <PlayerInfo
+            playerInfo={playerInfo}
+            getPlayerImagePath={getPlayerImagePath}
+            isMobile={isMobile}
+          />
 
+          {/* "Last X Games" + Show More Button */}
           <Box
             sx={{
               display: "flex",
@@ -227,7 +508,7 @@ const NBAPlayerStats = () => {
             >
               Last {showMore ? 25 : 10} Games
             </Typography>
-            {!showMore && (
+            {!showMore && games.length > 0 && (
               <Button
                 onClick={handleShowMore}
                 variant="outlined"
@@ -245,7 +526,7 @@ const NBAPlayerStats = () => {
             )}
           </Box>
 
-          {/* Stats Table */}
+          {/* Table */}
           <TableContainer
             component={Paper}
             sx={{
@@ -271,276 +552,15 @@ const NBAPlayerStats = () => {
                 tableLayout: "fixed",
               }}
             >
-              <colgroup>
-                {[
-                  { width: "8%" }, // Date
-                  { width: "12%" }, // Matchup
-                  { width: "4%" }, // W/L
-                  { width: "5%" }, // MIN
-                  { width: "5%" }, // PTS
-                  { width: "7%" }, // FGM-FGA
-                  { width: "5%" }, // FG%
-                  { width: "7%" }, // 3PM-3PA
-                  { width: "5%" }, // 3P%
-                  { width: "7%" }, // FTM-FTA
-                  { width: "5%" }, // FT%
-                  { width: "5%" }, // REB
-                  { width: "5%" }, // AST
-                  { width: "5%" }, // STL
-                  { width: "5%" }, // BLK
-                  { width: "5%" }, // TOV
-                  { width: "5%" }, // +/-
-                ].map((col, index) => (
-                  <col key={index} style={{ width: col.width }} />
-                ))}
-              </colgroup>
-              <TableHead>
-                <TableRow>
-                  {[
-                    "Date",
-                    "Matchup",
-                    "W/L",
-                    "MIN",
-                    "PTS",
-                    "FGM-FGA",
-                    "FG%",
-                    "3PM-3PA",
-                    "3P%",
-                    "FTM-FTA",
-                    "FT%",
-                    "REB",
-                    "AST",
-                    "STL",
-                    "BLK",
-                    "TOV",
-                    "+/-",
-                  ].map((header) => (
-                    <TableCell
-                      key={header}
-                      sx={{
-                        backgroundColor: "#101010",
-                        color: "rgba(255, 255, 255, 0.95)",
-                        fontWeight: 600,
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {header}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {playerStats?.games?.map((game, index) => (
-                  <TableRow
-                    key={index}
-                    sx={{
-                      backgroundColor:
-                        index % 2 === 0
-                          ? "rgba(255, 255, 255, 0.01)"
-                          : "transparent",
-                      "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 0.03)",
-                      },
-                    }}
-                  >
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {formatDate(game.game_date)}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {game.matchup}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: game.wl === "W" ? "#4caf50" : "#f44336",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {game.wl}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {Math.round(game.min)}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color:
-                          game.pts >= 20
-                            ? "#64b5f6"
-                            : "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                        fontWeight: game.pts >= 20 ? 600 : 400,
-                      }}
-                    >
-                      {game.pts}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {`${game.fgm}-${game.fga}`}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {(game.fg_pct * 100).toFixed(1)}%
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {`${game.fg3m}-${game.fg3a}`}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {(game.fg3_pct * 100).toFixed(1)}%
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {`${game.ftm}-${game.fta}`}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {(game.ft_pct * 100).toFixed(1)}%
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color:
-                          game.reb >= 10
-                            ? "#64b5f6"
-                            : "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                        fontWeight: game.reb >= 10 ? 600 : 400,
-                      }}
-                    >
-                      {game.reb}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color:
-                          game.ast >= 10
-                            ? "#64b5f6"
-                            : "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                        fontWeight: game.ast >= 10 ? 600 : 400,
-                      }}
-                    >
-                      {game.ast}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {game.stl}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {game.blk}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "rgba(255, 255, 255, 0.87)",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      {game.tov}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: game.plus_minus > 0 ? "#4caf50" : "#f44336",
-                        padding: isMobile ? "8px 4px" : "12px 16px",
-                        fontSize: isMobile ? "0.75rem" : "0.875rem",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                        fontWeight: Math.abs(game.plus_minus) >= 15 ? 600 : 400,
-                      }}
-                    >
-                      {game.plus_minus > 0
-                        ? `+${game.plus_minus}`
-                        : game.plus_minus}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+              {TableColgroup}
+              <TableHeader isMobile={isMobile} />
+              <TableBody>{tableRows}</TableBody>
             </Table>
           </TableContainer>
         </Box>
       )}
     </Box>
   );
-};
+}
 
-export default NBAPlayerStats;
+export default memo(NBAPlayerStats);

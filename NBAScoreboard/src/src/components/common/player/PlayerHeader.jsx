@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { Box, Avatar, Typography, useMediaQuery } from "@mui/material";
 import { getPlayerImageUrl } from "../../../services/playerService";
 
@@ -46,7 +46,7 @@ const PlayerHeader = ({ playerInfo }) => {
         </Typography>
         <Typography
           sx={{
-            color: theme => theme.palette.primary.main,
+            color: "#64b5f6",
             fontSize: isMobile ? "1rem" : "1.1rem",
             fontWeight: 500,
           }}
@@ -58,4 +58,4 @@ const PlayerHeader = ({ playerInfo }) => {
   );
 };
 
-export default PlayerHeader;
+export default memo(PlayerHeader);

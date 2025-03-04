@@ -11,11 +11,13 @@ from app.core.database import init_db, get_db, SessionLocal
 from app.api.v1.endpoints import router as api_router
 from app.services.players import update_player_database
 from app.services.standings import update_standings_database
+
 # Import these from your scoreboard service (restores old approach)
 from app.services.scoreboard import scoreboard_manager, get_live_scoreboard
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,6 +48,7 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
@@ -55,8 +58,8 @@ def create_app() -> FastAPI:
         description="FastAPI backend for NBA scores and statistics",
         version="1.0.0",
         lifespan=lifespan,
-        docs_url=None,   # Disable default /docs
-        redoc_url=None   # Disable default /redoc
+        docs_url=None,  # Disable default /docs
+        redoc_url=None,  # Disable default /redoc
     )
 
     # Configure CORS
@@ -65,7 +68,7 @@ def create_app() -> FastAPI:
         allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"]
+        allow_headers=["*"],
     )
 
     # Custom docs endpoints
@@ -89,24 +92,43 @@ def create_app() -> FastAPI:
 
     return app
 
+
+# Replace this function in main.py
+
+
 async def fetch_scoreboard_updates():
-    """Background task to periodically fetch the live scoreboard and broadcast updates."""
+    """
+    Background task to periodically fetch the live scoreboard and broadcast updates.
+    Only broadcasts when there are meaningful changes to reduce unnecessary network traffic.
+    Handles timestamp validation and clock standardization.
+    """
+    logger.info("Starting scoreboard update background task")
+    settings = get_settings()
+    
     while True:
         try:
             # Fetch live scoreboard from services/scoreboard.py
             games_response = await get_live_scoreboard()
-            # Broadcast just the "games" array in that ScoreboardResponse
-            await scoreboard_manager.broadcast(games_response.dict()["games"])
-
-            # Sleep briefly before the next update
-            await asyncio.sleep(1)
+            
+            # Convert to dict and pass to broadcast method which applies
+            # clock standardization, change detection, and timestamp validation
+            games_data = games_response.model_dump()
+            was_broadcast = await scoreboard_manager.broadcast(games_data["games"])
+            
+            if was_broadcast:
+                logger.debug(f"Broadcast scoreboard update with {len(games_data['games'])} games")
+                
+            # Sleep briefly before the next update (use configured interval)
+            await asyncio.sleep(.25)
         except Exception as e:
             logger.error(f"Error in scoreboard update task: {e}")
             # Sleep longer on error
             await asyncio.sleep(5)
 
+
 app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

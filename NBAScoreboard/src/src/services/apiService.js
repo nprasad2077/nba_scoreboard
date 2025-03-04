@@ -10,14 +10,15 @@
 export const fetchBoxScore = async (gameId) => {
   if (!gameId) return null;
   
-  // If gameId is an object, extract the game_id
-  const id = typeof gameId === 'object' ? gameId.game_id : gameId;
+  // If gameId is an object, extract the game_id or gameId
+  const id = typeof gameId === 'object' ? (gameId.game_id || gameId.gameId) : gameId;
   
   try {
-    const baseUrl = import.meta.env.VITE_BOX_SCORE_URL || "http://192.168.1.71:8000/api/v1/scoreboard/boxscore";
+    const baseUrl = "http://localhost:8000/api/v1/scoreboard/boxscore";
     const response = await fetch(`${baseUrl}/${id}`);
     
     if (!response.ok) {
+      console.error(`Box score request failed with status: ${response.status}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
@@ -35,24 +36,32 @@ export const fetchBoxScore = async (gameId) => {
  */
 export const fetchHistoricalGames = async (date) => {
   try {
-    const baseUrl = import.meta.env.VITE_SCORE_URL || "http://192.168.1.71:8000/api/v1/scoreboard/past";
+    // Log environment variables for debugging
+    console.log("Environment variables:", {
+      VITE_SCORE_URL: import.meta.env.VITE_SCORE_URL,
+      VITE_BACKEND_URL: import.meta.env.VITE_BACKEND_URL
+    });
+    
+    // Use explicit localhost URL for testing
+    const baseUrl = "http://localhost:8000/api/v1/scoreboard/past";
     
     // Format the date as YYYY-MM-DD for the API
     const formattedDate = date.format("YYYY-MM-DD");
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
     
-    // If date is yesterday, no need to add date parameter
-    const isYesterday = formattedDate === new Date(yesterday).toISOString().split('T')[0];
-    const apiUrl = `${baseUrl}${!isYesterday ? `?date=${formattedDate}` : ""}`;
+    // Fixed URL construction with explicit localhost path
+    const apiUrl = `${baseUrl}?date=${formattedDate}`;
     
+    console.log("Fetching historical games from:", apiUrl);
     const response = await fetch(apiUrl);
     
     if (!response.ok) {
+      console.error(`Historical games request failed with status: ${response.status}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log(`Fetched ${data.length} historical games for ${formattedDate}`);
+    return data;
   } catch (error) {
     console.error('Error fetching historical games:', error);
     return [];
@@ -66,7 +75,7 @@ export const fetchHistoricalGames = async (date) => {
  */
 export const fetchPlayerStats = async (playerName) => {
   try {
-    const baseUrl = import.meta.env.VITE_PLAYER_STATS_URL || "http://192.168.1.71:8000/api/v1/players/search";
+    const baseUrl = import.meta.env.VITE_PLAYER_STATS_URL || "http://localhost:8000/api/v1/players/search";
     const response = await fetch(`${baseUrl}/${encodeURIComponent(playerName)}`);
     
     if (!response.ok) {

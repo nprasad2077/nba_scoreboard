@@ -1,9 +1,10 @@
 // NBAPlayerStats.jsx
 import React, { useState } from "react";
-import { Box, useMediaQuery, Alert } from "@mui/material";
+import { Box, Container, Typography, useMediaQuery, Alert } from "@mui/material";
 import PlayerSearch from "./common/player/PlayerSearch";
 import PlayerHeader from "./common/player/PlayerHeader";
 import PlayerGameStats from "./common/player/PlayerGameStats";
+import Header from "./common/Header";
 import { searchPlayersByName, fetchPlayerGameStats } from "../services/playerService";
 
 /**
@@ -104,34 +105,44 @@ const NBAPlayerStats = () => {
   };
 
   return (
-    <Box
+    <Container
+      maxWidth="xl"
       sx={{
-        width: "100%",
-        py: 2,
-        px: isMobile ? 1 : 3,
-        backgroundColor: "#101010",
+        py: isMobile ? 2 : 4,
+        px: isMobile ? 1 : 2,
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        maxWidth: "1400px !important",
       }}
     >
-      <PlayerSearch
-        searchQuery={searchQuery}
-        searchResults={searchResults}
-        onSearchChange={handleSearchChange}
-        onPlayerSelect={handlePlayerSelect}
-        isLoading={isSearching}
-        error={searchError}
+      {/* Header */}
+      <Header
+        title="Player Statistics"
       />
+      
+      {/* Search */}
+      <Box sx={{ 
+        width: "100%", 
+        maxWidth: "600px", 
+        mb: 3,
+        mx: "auto"
+      }}>
+        <PlayerSearch
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          onSearchChange={handleSearchChange}
+          onPlayerSelect={handlePlayerSelect}
+          isLoading={isSearching}
+          error={searchError}
+        />
+      </Box>
 
       {statsError && (
         <Alert 
           severity="error" 
           sx={{ 
             mb: 2, 
-            maxWidth: "1400px", 
-            mx: "auto", 
             width: "100%",
             backgroundColor: "#350000", 
             color: "white"
@@ -142,14 +153,21 @@ const NBAPlayerStats = () => {
       )}
 
       {isLoadingStats && !playerStats && (
-        <Box 
-          sx={{ 
-            display: "flex", 
-            justifyContent: "center", 
-            py: 4 
+        <Box
+          sx={{
+            textAlign: "center",
+            py: isMobile ? 4 : 6,
+            opacity: 0.7,
           }}
         >
-          Loading player statistics...
+          <Typography
+            variant={isMobile ? "body1" : "h6"}
+            sx={{
+              fontSize: isMobile ? "0.875rem" : "1rem",
+            }}
+          >
+            Loading player statistics...
+          </Typography>
         </Box>
       )}
 
@@ -158,8 +176,7 @@ const NBAPlayerStats = () => {
           sx={{
             overflow: "auto",
             flex: 1,
-            maxWidth: "1400px",
-            margin: "0 auto",
+            width: "100%",
           }}
         >
           <PlayerHeader playerInfo={playerStats.player_info} />
@@ -172,7 +189,27 @@ const NBAPlayerStats = () => {
           />
         </Box>
       )}
-    </Box>
+
+      {/* Empty State */}
+      {!playerStats && !isLoadingStats && !statsError && (
+        <Box
+          sx={{
+            textAlign: "center",
+            py: isMobile ? 4 : 6,
+            opacity: 0.7,
+          }}
+        >
+          <Typography
+            variant={isMobile ? "body1" : "h6"}
+            sx={{
+              fontSize: isMobile ? "0.875rem" : "1rem",
+            }}
+          >
+            Search for a player to view their stats
+          </Typography>
+        </Box>
+      )}
+    </Container>
   );
 };
 
