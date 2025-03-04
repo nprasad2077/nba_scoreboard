@@ -3,9 +3,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Qu
 import asyncio
 from typing import Optional
 from datetime import datetime, timedelta
+import logging
 
 from app.services.scoreboard import (
-    get_box_score,
+    get_box_score_fixed,  # Import the fixed version 
     get_past_scoreboard,
     scoreboard_manager,
     playbyplay_manager
@@ -13,6 +14,7 @@ from app.services.scoreboard import (
 from app.schemas.scoreboard import GameBoxScore
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.websocket("/ws")
 async def scoreboard_websocket(websocket: WebSocket):
@@ -32,8 +34,8 @@ async def scoreboard_websocket(websocket: WebSocket):
     except WebSocketDisconnect:
         await scoreboard_manager.disconnect(websocket)
     except Exception as e:
+        logger.error(f"WebSocket error: {e}")
         await scoreboard_manager.disconnect(websocket)
-        # raise HTTPException(status_code=500, detail=str(e))
 
 @router.websocket("/ws/playbyplay/{game_id}")
 async def playbyplay_websocket(websocket: WebSocket, game_id: str):
@@ -47,6 +49,7 @@ async def playbyplay_websocket(websocket: WebSocket, game_id: str):
     except WebSocketDisconnect:
         await playbyplay_manager.disconnect(websocket, game_id)
     except Exception as e:
+        logger.error(f"[PlayByPlay] WebSocket error: {e}")
         await playbyplay_manager.disconnect(websocket, game_id)
 
 @router.get("/past")
@@ -82,6 +85,9 @@ async def get_game_boxscore(game_id: str):
         HTTPException: If box score is not found
     """
     try:
-        return await get_box_score(game_id)
+        # Use the fixed implementation
+        result = await get_box_score_fixed(game_id)
+        return result
     except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        logger.error(f"Error fetching box score: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

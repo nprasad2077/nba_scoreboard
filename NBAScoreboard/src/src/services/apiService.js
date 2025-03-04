@@ -14,7 +14,7 @@ export const fetchBoxScore = async (gameId) => {
   const id = typeof gameId === 'object' ? (gameId.game_id || gameId.gameId) : gameId;
   
   try {
-    const baseUrl = import.meta.env.VITE_BOX_SCORE_URL || "http://localhost:8000/api/v1/scoreboard/boxscore";
+    const baseUrl = "http://localhost:8000/api/v1/scoreboard/boxscore";
     const response = await fetch(`${baseUrl}/${id}`);
     
     if (!response.ok) {

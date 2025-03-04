@@ -22,6 +22,8 @@ const Scoreboard = ({ games, isConnected, lastUpdateTime }) => {
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [showCompletedGames, setShowCompletedGames] = useState(true);
 
+  console.log(games)
+
   // Categorize games into live, scheduled, and completed
   const { liveGames, scheduledGames, completedGames } = categorizeGames(games);
 

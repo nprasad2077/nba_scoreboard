@@ -93,14 +93,15 @@ export const sortGames = (a, b) => {
  * @returns {Object} - Object with liveGames, scheduledGames, completedGames arrays
  */
 export const categorizeGames = (games) => {
-  // Live games: not starting with "Start:", not "Final", not starting with "0Q"
-  // Live games
+  // Live games: not starting with "Start:", not "Final", not starting with "0Q",
+  // and specifically include "Halftime"
   const liveGames = games.filter(
     (game) =>
       game.time &&
-      !game.time.startsWith("Start:") &&
-      game.time !== "Final" &&
-      !game.time.startsWith("0Q")
+      ((!game.time.startsWith("Start:") &&
+        game.time !== "Final" &&
+        !game.time.startsWith("0Q")) ||
+        game.time === "Halftime")
   );
 
   // Scheduled games
