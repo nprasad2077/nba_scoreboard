@@ -148,7 +148,15 @@ function EnhancedTableHead(props) {
               color: "rgba(255, 255, 255, 0.95)",
               fontWeight: 600,
               width: headCell.width,
-              padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
+              padding: isXsScreen 
+                ? headCell.id === "name" || headCell.id === "plusMinusPoints" 
+                  ? "4px 4px" 
+                  : "4px 1px" 
+                : isMobile 
+                  ? headCell.id === "name" || headCell.id === "plusMinusPoints"
+                    ? "6px 6px"
+                    : "6px 2px" 
+                  : "12px 16px",
               fontSize: isXsScreen ? "0.6rem" : isMobile ? "0.7rem" : "0.875rem",
               borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
               whiteSpace: "nowrap",
@@ -280,7 +288,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
               <Typography
                 component="span"
                 sx={{
-                  ml: isXsScreen ? 0.5 : 1,
+                  ml: isXsScreen ? 1.5 : isMobile ? 2 : 3,
                   color: "#64b5f6",
                   fontSize: isXsScreen ? "0.9rem" : isMobile ? "1rem" : "1.5rem",
                   fontWeight: 600,
@@ -346,7 +354,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                       display: "flex",
                       alignItems: "center",
                       gap: isXsScreen ? "2px" : "4px",
-                      padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
+                      padding: isXsScreen ? "4px 4px" : isMobile ? "6px 6px" : "12px 16px",
                     }}
                   >
                     {formatPlayerName(player.name, isMobile, isXsScreen)}
@@ -437,7 +445,7 @@ function TeamBoxScoreTable({ team, teamName, scoreboardScore }) {
                         Math.abs(player.statistics.plusMinusPoints) >= 15
                           ? 600
                           : 400,
-                      padding: isXsScreen ? "4px 1px" : isMobile ? "6px 2px" : "12px 16px",
+                      padding: isXsScreen ? "4px 4px" : isMobile ? "6px 6px" : "12px 16px",
                     }}
                   >
                     {player.statistics.plusMinusPoints > 0
@@ -524,7 +532,7 @@ const BoxScore = ({ game, open }) => {
       sx={{
         width: "100%",
         py: isXsScreen ? 0.5 : isMobile ? 1 : 2,
-        px: isXsScreen ? 0.25 : isMobile ? 0.5 : 3,
+        px: isXsScreen ? 0.5 : isMobile ? 1 : 3,
         backgroundColor: "#101010",
         overflow: "auto",
         height: "100%",
