@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { formatGameTime } from "../utils/dateUtils";
 
 /**
  * Custom hook for WebSocket connection with automatic reconnection
@@ -39,25 +40,31 @@ const useWebSocket = () => {
           try {
             // Parse the incoming data
             const rawGamesData = JSON.parse(event.data);
+            console.log("Raw WebSocket data received:", rawGamesData);
 
             // Transform the data to match the expected format in the UI
+            // But keep the original game_status, game_time fields
             const transformedGames = rawGamesData.map((game) => {
-              // Extract data from nested structure
+              // Get computed game time using our improved function
+              const time = formatGameTime(game);
+
               return {
                 gameId: game.game_id,
+                game_id: game.game_id,
+                game_status: game.game_status,
+                period: game.period,
+                clock: game.clock,
+                game_time: game.game_time,
                 away_team: game.away_team.team_name,
                 away_tricode: game.away_team.team_tricode,
                 home_team: game.home_team.team_name,
                 home_tricode: game.home_team.team_tricode,
                 score: `${game.away_team.score} - ${game.home_team.score}`,
-                time: formatGameClock(
-                  game.clock,
-                  game.period,
-                  game.game_status
-                ),
+                time: time,
               };
             });
 
+            console.log("Transformed games data:", transformedGames);
             setGames(transformedGames);
             setLastUpdateTime(new Date());
           } catch (error) {
@@ -117,51 +124,6 @@ const useWebSocket = () => {
       }
     };
   }, []);
-
-  /**
-   * Format the game clock based on period and format received
-   */
-  const formatGameClock = (clock, period, status) => {
-    // Game hasn't started yet
-    if (status === 1) {
-      return "Start: TBD";
-    }
-
-    // Game is completed
-    if (status === 3) {
-      return "Final";
-    }
-
-    // Halftime check - if period is 2 and clock is empty or "0:00"
-    if (
-      period === 2 &&
-      (!clock || clock === "0:00" || clock === "PT00M00.00S")
-    ) {
-      return "Halftime";
-    }
-
-    // Game in progress
-    if (clock) {
-      // Handle ISO duration format like "PT09M22.00S"
-      if (clock.startsWith("PT")) {
-        const minutesMatch = clock.match(/PT(\d+)M/);
-        const secondsMatch = clock.match(/M(\d+\.\d+)S/);
-
-        const minutes = minutesMatch ? minutesMatch[1] : "0";
-        const seconds = secondsMatch
-          ? Math.floor(parseFloat(secondsMatch[1]))
-          : "00";
-
-        // Format as "1Q 9:22" or similar
-        return `${period}Q ${minutes}:${seconds.toString().padStart(2, "0")}`;
-      }
-
-      // Already formatted
-      return clock;
-    }
-
-    return "0Q 0:00";
-  };
 
   return {
     games,

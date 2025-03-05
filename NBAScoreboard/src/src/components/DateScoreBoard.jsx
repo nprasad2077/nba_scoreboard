@@ -11,6 +11,72 @@ import { categorizeGames } from "../utils/dateUtils"; // Use dateUtils instead o
 import { fetchHistoricalGames } from "../services/apiService";
 
 /**
+ * Sort function that orders games by period and time,
+ * with games closest to completion first (OT/4Q 00:00) 
+ * down to games that are just starting (Pregame/1Q 12:00)
+ * 
+ * @param {Object} a - First game to compare
+ * @param {Object} b - Second game to compare
+ * @returns {number} - Sorting value
+ */
+const sortGamesByProgress = (a, b) => {
+  // Helper function to convert game time to a comparable value
+  const getGameProgressValue = (game) => {
+    // For DateScoreBoard, we need to parse period and clock differently
+    // since the format may be different from the live Scoreboard games
+    
+    // Default to lowest priority if we can't determine
+    let periodValue = 0;
+    let timeInSeconds = 12 * 60; // Default to maximum (12:00)
+    
+    // Extract period and time from the time string (e.g. "3Q 2:45" or "Final")
+    if (game.time) {
+      if (game.time === "Final") {
+        // Completed games get highest priority
+        return 999999;
+      }
+      
+      if (game.time.startsWith("Start:")) {
+        // Scheduled games get lowest priority
+        return -999999;
+      }
+      
+      // Try to parse period (e.g., "3Q" or "2OT")
+      const periodMatch = game.time.match(/(\d+)Q/) || game.time.match(/(\d+)OT/);
+      const isOT = game.time.includes("OT");
+      
+      if (periodMatch) {
+        periodValue = parseInt(periodMatch[1]);
+        // OT periods should be valued higher than regulation
+        if (isOT) {
+          periodValue += 4; // Make OT periods higher than regulation
+        }
+      }
+      
+      // Try to parse clock time (e.g., "10:30")
+      const timeMatch = game.time.match(/(\d+):(\d+)/);
+      if (timeMatch) {
+        const minutes = parseInt(timeMatch[1]);
+        const seconds = parseInt(timeMatch[2]);
+        timeInSeconds = (minutes * 60) + seconds;
+      }
+    }
+    
+    // Return a single comparable value
+    // Higher periodValue means later in the game
+    // Lower timeInSeconds means closer to end of period
+    return (periodValue * 100000) - timeInSeconds;
+  };
+  
+  // Get the progress values for both games
+  const valueA = getGameProgressValue(a);
+  const valueB = getGameProgressValue(b);
+  
+  // Sort in descending order (highest progress value first)
+  return valueB - valueA;
+};
+
+/**
  * Simple helper to transform the raw game data returned by the new endpoint
  * into the shape our UI expects (same as the "old" format).
  */
@@ -21,6 +87,11 @@ function transformGames(rawGames) {
     return {
       // Match the property names used in the UI
       gameId: g.game_id, // was "game_id" in the new data
+      game_id: g.game_id, // Keep original field too
+      period: g.period || 0,
+      clock: g.clock || null,
+      game_time: g.game_time || null,
+      game_status: g.game_status || 0,
       away_team: g.away_team?.team_name || "",
       away_tricode: g.away_team?.team_tricode || "",
       home_team: g.home_team?.team_name || "",
@@ -146,6 +217,17 @@ const DateScoreBoard = () => {
   // Categorize games into live, scheduled, and completed
   const { liveGames, scheduledGames, completedGames } = categorizeGames(games);
 
+  // Sort live games by progress (games closest to completion first)
+  const sortedLiveGames = [...liveGames].sort(sortGamesByProgress);
+
+  // For scheduled games, sort by game time
+  const sortedScheduledGames = [...scheduledGames].sort((a, b) => {
+    if (a.game_time && b.game_time) {
+      return new Date(a.game_time) - new Date(b.game_time);
+    }
+    return 0;
+  });
+
   // Click handler for an in-progress or completed game => open modal
   const handleBoxScoreClick = (game) => {
     console.log("Selected game for box score:", game);
@@ -186,18 +268,18 @@ const DateScoreBoard = () => {
       </Box>
 
       {/* Game Sections */}
-      {liveGames.length > 0 && (
+      {sortedLiveGames.length > 0 && (
         <GameCategorySection 
-          games={liveGames} 
+          games={sortedLiveGames} 
           title="Live Games" 
           onBoxScoreClick={handleBoxScoreClick} 
           isLive
         />
       )}
       
-      {scheduledGames.length > 0 && (
+      {sortedScheduledGames.length > 0 && (
         <GameCategorySection 
-          games={scheduledGames} 
+          games={sortedScheduledGames} 
           title="Upcoming Games" 
           onBoxScoreClick={handleBoxScoreClick}
         />

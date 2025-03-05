@@ -1,0 +1,199 @@
+Examine the ScoreBoard component and how it handles displaying upcoming games. Currently, they are displayed as "invalid date". Perhaps the DateUtils component is handling this.
+
+
+
+
+JSON
+```
+[
+    {
+        "away_team": {
+            "score": 14,
+            "team_city": "Golden State",
+            "team_id": "1610612744",
+            "team_name": "Warriors",
+            "team_tricode": "GSW"
+        },
+        "clock": "PT06M48.00S",
+        "game_id": "0022400885",
+        "game_status": 2,
+        "game_time": "2025-03-05T00:30:00+00:00",
+        "home_team": {
+            "score": 15,
+            "team_city": "New York",
+            "team_id": "1610612752",
+            "team_name": "Knicks",
+            "team_tricode": "NYK"
+        },
+        "period": 1
+    },
+    {
+        "away_team": {
+            "score": 8,
+            "team_city": "Milwaukee",
+            "team_id": "1610612749",
+            "team_name": "Bucks",
+            "team_tricode": "MIL"
+        },
+        "clock": "PT08M52.00S",
+        "game_id": "0022400884",
+        "game_status": 2,
+        "game_time": "2025-03-05T00:30:00+00:00",
+        "home_team": {
+            "score": 5,
+            "team_city": "Atlanta",
+            "team_id": "1610612737",
+            "team_name": "Hawks",
+            "team_tricode": "ATL"
+        },
+        "period": 1
+    },
+    {
+        "away_team": {
+            "score": 22,
+            "team_city": "Toronto",
+            "team_id": "1610612761",
+            "team_name": "Raptors",
+            "team_tricode": "TOR"
+        },
+        "clock": "PT11M18.00S",
+        "game_id": "0022400883",
+        "game_status": 2,
+        "game_time": "2025-03-05T00:00:00+00:00",
+        "home_team": {
+            "score": 22,
+            "team_city": "Orlando",
+            "team_id": "1610612753",
+            "team_name": "Magic",
+            "team_tricode": "ORL"
+        },
+        "period": 2
+    },
+    {
+        "away_team": {
+            "score": 37,
+            "team_city": "Houston",
+            "team_id": "1610612745",
+            "team_name": "Rockets",
+            "team_tricode": "HOU"
+        },
+        "clock": "PT09M14.00S",
+        "game_id": "0022400882",
+        "game_status": 2,
+        "game_time": "2025-03-05T00:00:00+00:00",
+        "home_team": {
+            "score": 36,
+            "team_city": "Indiana",
+            "team_id": "1610612754",
+            "team_name": "Pacers",
+            "team_tricode": "IND"
+        },
+        "period": 2
+    },
+    {
+        "away_team": {
+            "score": 0,
+            "team_city": "Cleveland",
+            "team_id": "1610612739",
+            "team_name": "Cavaliers",
+            "team_tricode": "CLE"
+        },
+        "clock": null,
+        "game_id": "0022400886",
+        "game_status": 1,
+        "game_time": "2025-03-05T01:00:00+00:00",
+        "home_team": {
+            "score": 0,
+            "team_city": "Chicago",
+            "team_id": "1610612741",
+            "team_name": "Bulls",
+            "team_tricode": "CHI"
+        },
+        "period": 0
+    },
+    {
+        "away_team": {
+            "score": 0,
+            "team_city": "Philadelphia",
+            "team_id": "1610612755",
+            "team_name": "76ers",
+            "team_tricode": "PHI"
+        },
+        "clock": null,
+        "game_id": "0022400887",
+        "game_status": 1,
+        "game_time": "2025-03-05T01:00:00+00:00",
+        "home_team": {
+            "score": 0,
+            "team_city": "Minnesota",
+            "team_id": "1610612750",
+            "team_name": "Timberwolves",
+            "team_tricode": "MIN"
+        },
+        "period": 0
+    },
+    {
+        "away_team": {
+            "score": 0,
+            "team_city": "Brooklyn",
+            "team_id": "1610612751",
+            "team_name": "Nets",
+            "team_tricode": "BKN"
+        },
+        "clock": null,
+        "game_id": "0022400888",
+        "game_status": 1,
+        "game_time": "2025-03-05T01:30:00+00:00",
+        "home_team": {
+            "score": 0,
+            "team_city": "San Antonio",
+            "team_id": "1610612759",
+            "team_name": "Spurs",
+            "team_tricode": "SAS"
+        },
+        "period": 0
+    },
+    {
+        "away_team": {
+            "score": 0,
+            "team_city": "LA",
+            "team_id": "1610612746",
+            "team_name": "Clippers",
+            "team_tricode": "LAC"
+        },
+        "clock": null,
+        "game_id": "0022400889",
+        "game_status": 1,
+        "game_time": "2025-03-05T03:00:00+00:00",
+        "home_team": {
+            "score": 0,
+            "team_city": "Phoenix",
+            "team_id": "1610612756",
+            "team_name": "Suns",
+            "team_tricode": "PHX"
+        },
+        "period": 0
+    },
+    {
+        "away_team": {
+            "score": 0,
+            "team_city": "New Orleans",
+            "team_id": "1610612740",
+            "team_name": "Pelicans",
+            "team_tricode": "NOP"
+        },
+        "clock": null,
+        "game_id": "0022400890",
+        "game_status": 1,
+        "game_time": "2025-03-05T03:30:00+00:00",
+        "home_team": {
+            "score": 0,
+            "team_city": "Los Angeles",
+            "team_id": "1610612747",
+            "team_name": "Lakers",
+            "team_tricode": "LAL"
+        },
+        "period": 0
+    }
+]
+```
