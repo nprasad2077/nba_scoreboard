@@ -29,9 +29,6 @@ from app.schemas.scoreboard import (
 logger = logging.getLogger(__name__)
 
 
-# To add to app/services/scoreboard.py
-
-
 async def get_box_score_fixed(game_id: str):
     """
     Fixed implementation that matches the schema fields correctly.
@@ -252,8 +249,11 @@ def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
     return False
 
 
+# Modified ScoreboardManager class for app/services/scoreboard.py
+
+
 class ScoreboardManager:
-    """Manages live scoreboard data and WebSocket connections."""
+    """Manages live scoreboard data and WebSocket connections with enhanced state validation."""
 
     def __init__(self):
         self.active_connections: Set[WebSocket] = set()
@@ -262,6 +262,9 @@ class ScoreboardManager:
         self.last_update_timestamp: Dict[str, float] = (
             {}
         )  # Track last update time per game
+        self.game_state_history: Dict[str, List[Dict]] = (
+            {}
+        )  # Track game state history for validation
 
     async def connect(self, websocket: WebSocket):
         """Add a new WebSocket connection."""
@@ -272,128 +275,108 @@ class ScoreboardManager:
         """Remove a WebSocket connection."""
         self.active_connections.discard(websocket)
 
-    def is_newer_data(self, game_id: str, new_data: Dict) -> bool:
+    def is_valid_game_progression(self, game_id: str, new_data: Dict) -> bool:
         """
-        Check if the new game data is actually newer than what we have.
+        Check if the new game data represents a valid progression from previous states.
 
-        This prevents old/cached data from being considered as new updates.
+        This function enforces logical game progression rules to filter out invalid/inconsistent updates.
 
         Args:
             game_id: The unique identifier for the game
             new_data: The new game data to check
 
         Returns:
-            True if data is newer or we don't have previous data, False otherwise
+            True if data represents valid game progression, False otherwise
         """
-        current_time = time.time()
-
-        # If we haven't seen this game before, it's definitely new
-        if game_id not in self.last_update_timestamp:
-            self.last_update_timestamp[game_id] = current_time
+        # If we haven't seen this game before, accept the data
+        if game_id not in self.game_state_history:
+            self.game_state_history[game_id] = []
             return True
 
-        # Check if data is actually newer based on game state
-        old_game = next(
-            (g for g in self.current_games if g["game_id"] == game_id), None
-        )
-
-        if not old_game:
-            # If game wasn't in our current games, consider it new
-            self.last_update_timestamp[game_id] = current_time
+        # If history is empty, accept the data
+        if not self.game_state_history[game_id]:
             return True
 
-        # Check for state progression that indicates newer data
-        is_newer = False
+        # Get the last known state
+        last_state = self.game_state_history[game_id][-1]
 
-        # Game status progression (1->2->3 is expected)
-        if new_data["game_status"] > old_game["game_status"]:
-            is_newer = True
-        # Period progression
-        elif new_data["period"] > old_game["period"]:
-            is_newer = True
-        # Score changes (they should only increase)
-        elif (
-            new_data["home_team"]["score"] > old_game["home_team"]["score"]
-            or new_data["away_team"]["score"] > old_game["away_team"]["score"]
+        # Rule 1: Period should never decrease during a live game
+        if new_data["game_status"] == 2 and last_state["game_status"] == 2:
+            if new_data["period"] < last_state["period"]:
+                logger.warning(
+                    f"Rejected invalid period regression for game {game_id}: "
+                    f"period {last_state['period']} -> {new_data['period']}"
+                )
+                return False
+
+        # Rule 2: If period increases, allow it (natural progression)
+        if new_data["period"] > last_state["period"]:
+            return True
+
+        # Rule 3: If in the same period, ensure clock is progressing forward (decreasing)
+        if (
+            new_data["period"] == last_state["period"]
+            and new_data["game_status"] == 2
+            and last_state["game_status"] == 2
         ):
-            is_newer = True
-        # For in-progress games, check clock progression (more complex)
-        elif new_data["game_status"] == 2 and old_game["game_status"] == 2:
-            # This would require parse_game_clock helper which we'll add below
-            old_seconds = parse_game_clock(old_game["clock"])
+
+            old_seconds = parse_game_clock(last_state["clock"])
             new_seconds = parse_game_clock(new_data["clock"])
 
-            # Only if we can parse both clocks and new is less than old (counting down)
+            # Only validate if both clocks can be parsed
             if old_seconds is not None and new_seconds is not None:
-                is_newer = new_seconds < old_seconds
+                # Clock should be decreasing (time moving forward)
+                if new_seconds > old_seconds:
+                    # Allow some tolerance for small clock adjustments (e.g., official review)
+                    if new_seconds - old_seconds > 5:  # More than 5 seconds backwards
+                        logger.warning(
+                            f"Rejected invalid clock regression for game {game_id}: "
+                            f"{last_state['clock']} -> {new_data['clock']}"
+                        )
+                        return False
 
-        # Enforce a minimum time between updates for the same game
-        # This prevents rapid flipping between states due to API inconsistency
-        time_since_last_update = current_time - self.last_update_timestamp.get(
-            game_id, 0
-        )
+        # Rule 4: Score should never decrease during a game
         if (
-            is_newer or time_since_last_update >= 5.0
-        ):  # 5 seconds minimum between updates
-            self.last_update_timestamp[game_id] = current_time
-            return True
-
-        return False
-
-    def scoreboard_changed_with_timestamp_check(
-        self, old_data: List[Dict], new_data: List[Dict]
-    ) -> bool:
-        """
-        Enhanced version of scoreboard_changed that incorporates timestamp validation.
-
-        Args:
-            old_data: Previous scoreboard data
-            new_data: Current scoreboard data
-
-        Returns:
-            True if there are meaningful changes with newer data, False otherwise
-        """
-        if not old_data and not new_data:
+            new_data["home_team"]["score"] < last_state["home_team"]["score"]
+            or new_data["away_team"]["score"] < last_state["away_team"]["score"]
+        ):
+            logger.warning(f"Rejected invalid score decrease for game {game_id}")
             return False
 
-        if len(old_data) != len(new_data):
-            return True
-
-        has_changes = False
-
-        # Create a map of old games by game_id for faster comparison
-        old_map = {g["game_id"]: g for g in old_data}
-
-        # Check each new game for changes
-        for new_game in new_data:
-            game_id = new_game["game_id"]
-
-            # Always consider new games as changes
-            if game_id not in old_map:
-                has_changes = True
-                continue
-
-            old_game = old_map[game_id]
-
-            # Check if key fields have changed
-            has_game_changes = (
-                old_game["game_status"] != new_game["game_status"]
-                or old_game["period"] != new_game["period"]
-                or old_game["clock"] != new_game["clock"]
-                or old_game["home_team"]["score"] != new_game["home_team"]["score"]
-                or old_game["away_team"]["score"] != new_game["away_team"]["score"]
+        # Rule 5: Game status should never go backwards (1->2->3)
+        if new_data["game_status"] < last_state["game_status"]:
+            logger.warning(
+                f"Rejected invalid status regression for game {game_id}: "
+                f"status {last_state['game_status']} -> {new_data['game_status']}"
             )
+            return False
 
-            # Only count changes if the data is actually newer
-            if has_game_changes and self.is_newer_data(game_id, new_game):
-                has_changes = True
+        return True
 
-        return has_changes
+    def update_game_history(self, game_id: str, game_data: Dict):
+        """
+        Update the history of game states.
+
+        Maintains a limited history of recent game states for validation purposes.
+
+        Args:
+            game_id: The unique identifier for the game
+            game_data: The game data to add to history
+        """
+        if game_id not in self.game_state_history:
+            self.game_state_history[game_id] = []
+
+        # Add new state to history
+        self.game_state_history[game_id].append(copy.deepcopy(game_data))
+
+        # Keep only the last 5 states to limit memory usage
+        if len(self.game_state_history[game_id]) > 5:
+            self.game_state_history[game_id].pop(0)
 
     async def broadcast(self, data: List[Dict]) -> bool:
         """
-        Broadcast data to all connected clients, but only if it has changed,
-        is newer than our current data, and has properly formatted clocks.
+        Broadcast data to all connected clients, with enhanced validation to prevent
+        fluctuating data states and inconsistent updates.
 
         Args:
             data: New scoreboard data
@@ -407,21 +390,88 @@ class ScoreboardManager:
         # Standardize game clocks first
         standardized_data = standardize_game_clocks(data)
 
-        # Check if data has changed and is newer before broadcasting
+        valid_updates = []
+
+        # First pass: validate each game update individually
+        for new_game in standardized_data:
+            game_id = new_game["game_id"]
+
+            # Check if this update represents valid game progression
+            if self.is_valid_game_progression(game_id, new_game):
+                # Additional check for timestamps to prevent frequent updates
+                current_time = time.time()
+                time_since_last_update = current_time - self.last_update_timestamp.get(
+                    game_id, 0
+                )
+
+                # Add to valid updates if it's been at least 1 second since the last update
+                # or if it's a significant state change (period change, game status change)
+                old_game = next(
+                    (g for g in self.current_games if g["game_id"] == game_id), None
+                )
+                significant_change = (
+                    old_game is None
+                    or old_game["game_status"] != new_game["game_status"]
+                    or old_game["period"] != new_game["period"]
+                    or abs(
+                        old_game["home_team"]["score"] - new_game["home_team"]["score"]
+                    )
+                    >= 2
+                    or abs(
+                        old_game["away_team"]["score"] - new_game["away_team"]["score"]
+                    )
+                    >= 2
+                )
+
+                if time_since_last_update >= 1.0 or significant_change:
+                    valid_updates.append(new_game)
+                    self.last_update_timestamp[game_id] = current_time
+                    self.update_game_history(game_id, new_game)
+
+        if not valid_updates:
+            return False
+
+        # Second pass: check if the overall scoreboard has changed
         async with self._lock:
-            # Use the enhanced change detection with timestamp validation
-            if not self.scoreboard_changed_with_timestamp_check(
-                self.current_games, standardized_data
-            ):
-                # No meaningful changes or data is stale, skip broadcasting
+            # Create a map for faster comparison
+            current_map = {g["game_id"]: g for g in self.current_games}
+            has_changes = False
+
+            for game in valid_updates:
+                game_id = game["game_id"]
+                if game_id not in current_map:
+                    has_changes = True
+                    break
+
+                old_game = current_map[game_id]
+                if (
+                    old_game["game_status"] != game["game_status"]
+                    or old_game["period"] != game["period"]
+                    or old_game["clock"] != game["clock"]
+                    or old_game["home_team"]["score"] != game["home_team"]["score"]
+                    or old_game["away_team"]["score"] != game["away_team"]["score"]
+                ):
+                    has_changes = True
+                    break
+
+            if not has_changes:
                 return False
 
-            # Update current games with standardized data
-            self.current_games = copy.deepcopy(standardized_data)
+            # Update our current games list with the valid updates
+            new_current_games = []
+
+            # First add games that didn't get updated
+            for old_game in self.current_games:
+                if old_game["game_id"] not in [g["game_id"] for g in valid_updates]:
+                    new_current_games.append(old_game)
+
+            # Then add the valid updates
+            new_current_games.extend(valid_updates)
+            self.current_games = new_current_games
 
         # Convert any datetime objects to strings
         json_data = json.loads(
-            json.dumps(standardized_data, default=self._serialize_datetime)
+            json.dumps(valid_updates, default=self._serialize_datetime)
         )
 
         # Broadcast to all connections
@@ -434,6 +484,7 @@ class ScoreboardManager:
 
         return True
 
+    # Other methods remain the same...
     async def send_current_games(self, websocket: WebSocket):
         """Send initial scoreboard data to a new connection."""
         try:

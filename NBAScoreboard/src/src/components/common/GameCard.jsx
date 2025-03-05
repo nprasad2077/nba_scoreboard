@@ -1,11 +1,19 @@
 import React from "react";
-import { Card, CardContent, Box, Typography, Stack, useTheme, useMediaQuery } from "@mui/material";
+import {
+  Card,
+  CardContent,
+  Box,
+  Typography,
+  Stack,
+  useTheme,
+  useMediaQuery,
+} from "@mui/material";
 import TeamInfo from "./TeamInfo";
-import { convertToLocalTime } from "../../utils/dateUtils";
+import { formatGameTime } from "../../utils/dateUtils";
 
 /**
  * Single game card component
- * 
+ *
  * @param {Object} props - Component props
  * @param {Object} props.game - Game data
  * @param {Function} props.onBoxScoreClick - Click handler for box score
@@ -14,20 +22,45 @@ import { convertToLocalTime } from "../../utils/dateUtils";
 const GameCard = ({ game, onBoxScoreClick }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery("(max-width:600px)");
-  const [awayScore, homeScore] = game.score.split(" - ").map((score) => parseInt(score) || 0);
 
-  // Convert the game time to local timezone
-  const gameStatus = convertToLocalTime(game.time);
+  // Extract team info from the game object based on the available structure
+  const awayTeam = game.away_team?.team_name || game.away_team;
+  const awayTricode = game.away_team?.team_tricode || game.away_tricode;
+  const homeTeam = game.home_team?.team_name || game.home_team;
+  const homeTricode = game.home_team?.team_tricode || game.home_tricode;
 
-  // Check if game is not started yet
-  const isNotStarted = gameStatus.startsWith("Start:") || gameStatus.startsWith("0Q");
+  // Handle score based on available structure
+  let scoreStr = game.score;
+  if (!scoreStr && game.away_team && game.home_team) {
+    scoreStr = `${game.away_team.score || 0} - ${game.home_team.score || 0}`;
+  }
+
+  const [awayScore, homeScore] = (scoreStr || "0 - 0")
+    .split(" - ")
+    .map((score) => parseInt(score) || 0);
+
+  // Use our new function to determine game status based on properties
+  const gameStatus = formatGameTime(game);
+
+  // Check if game is not started yet (status 1)
+  const isNotStarted = game.game_status === 1;
 
   // Hide the score for upcoming games
   const awayDisplayScore = isNotStarted ? "" : awayScore;
   const homeDisplayScore = isNotStarted ? "" : homeScore;
 
-  // Format the game status display (handle "0Q 0:00" as pre-game, etc.)
+  // Format the game status display
   const displayStatus = gameStatus === "0Q 0:00" ? "Pre-Game" : gameStatus;
+
+  console.log("Game card rendering:", {
+    id: game.game_id,
+    awayTeam,
+    awayTricode,
+    homeTeam,
+    homeTricode,
+    gameStatus,
+    isNotStarted,
+  });
 
   return (
     <Card
@@ -70,8 +103,8 @@ const GameCard = ({ game, onBoxScoreClick }) => {
           sx={{ height: "100%" }}
         >
           <TeamInfo
-            teamName={game.away_team}
-            tricode={game.away_tricode}
+            teamName={awayTeam}
+            tricode={awayTricode}
             score={awayDisplayScore}
             isWinner={!isNotStarted && awayScore > homeScore}
             isHomeTeam={false}
@@ -97,13 +130,15 @@ const GameCard = ({ game, onBoxScoreClick }) => {
                 fontSize: isMobile ? "0.875rem" : "1.25rem",
               }}
             >
-              {isNotStarted ? gameStatus.replace("Start: ", "") : displayStatus}{" "}
+              {isNotStarted
+                ? displayStatus.replace("Start: ", "")
+                : displayStatus}{" "}
             </Typography>
           </Box>
 
           <TeamInfo
-            teamName={game.home_team}
-            tricode={game.home_tricode}
+            teamName={homeTeam}
+            tricode={homeTricode}
             score={homeDisplayScore}
             isWinner={!isNotStarted && homeScore > awayScore}
             isHomeTeam={true}
