@@ -94,9 +94,6 @@ def create_app() -> FastAPI:
     return app
 
 
-# Replace this function in main.py
-
-
 async def fetch_scoreboard_updates():
     """
     Background task to periodically fetch the live scoreboard and broadcast updates.
@@ -105,12 +102,11 @@ async def fetch_scoreboard_updates():
     logger.info("Starting scoreboard update background task")
     settings = get_settings()
     
-    # Keep track of the last successful update time
-    last_successful_update = time.time()
-    
-    # Keep track of recent responses to detect flipping between states
-    recent_responses = []
-    MAX_RECENT_RESPONSES = 5
+    # Simple adaptive polling
+    base_interval = 1.0
+    current_interval = base_interval
+    max_interval = 3.0
+    min_interval = 0.5
     
     while True:
         try:
@@ -120,35 +116,21 @@ async def fetch_scoreboard_updates():
             # Convert to dict for easier manipulation
             games_data = games_response.model_dump()
             
-            # Add this response to our recent responses history
-            recent_responses.append(copy.deepcopy(games_data))
-            if len(recent_responses) > MAX_RECENT_RESPONSES:
-                recent_responses.pop(0)
-            
-            # Detect if we're flipping between two states
-            if len(recent_responses) >= 3:
-                # Check for alternating pattern in the latest 3 responses
-                if (are_responses_equal(recent_responses[-1], recent_responses[-3]) and
-                    not are_responses_equal(recent_responses[-1], recent_responses[-2])):
-                    logger.warning("Detected alternating game states - stabilizing data")
-                    
-                    # Introduce delay before broadcasting to let the data stabilize
-                    current_time = time.time()
-                    if current_time - last_successful_update < 5.0:
-                        # If we've had a successful update recently, skip this update
-                        logger.info("Skipping broadcast to allow data to stabilize")
-                        await asyncio.sleep(2)  # Sleep longer to let data stabilize
-                        continue
-            
             # Let the scoreboard manager handle validation and broadcasting
+            # The manager will now process each game individually and maintain
+            # a consistent view of all games
             was_broadcast = await scoreboard_manager.broadcast(games_data["games"])
             
             if was_broadcast:
                 logger.debug(f"Broadcast scoreboard update with {len(games_data['games'])} games")
-                last_successful_update = time.time()
+                # Decrease interval slightly on successful broadcast for more responsive updates
+                current_interval = max(min_interval, current_interval * 0.9)
+            else:
+                # Increase interval slightly when no changes to reduce polling
+                current_interval = min(max_interval, current_interval * 1.1)
                 
-            # Sleep briefly before the next update (use configured interval)
-            await asyncio.sleep(1)
+            # Sleep before the next update (use dynamic interval)
+            await asyncio.sleep(current_interval)
         except Exception as e:
             logger.error(f"Error in scoreboard update task: {e}")
             # Sleep longer on error

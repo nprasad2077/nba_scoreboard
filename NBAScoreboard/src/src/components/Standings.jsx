@@ -86,6 +86,9 @@ const MOBILE_COLUMN_HEADERS = {
   strk: "Strk",
 };
 
+// Storage key for selected conference tab
+const CONFERENCE_TAB_STORAGE_KEY = "nba_app_selected_conference_tab";
+
 // Memoized TabPanel component
 const TabPanel = memo(function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -581,7 +584,17 @@ StandingsTable.propTypes = {
 
 // Main Standings component
 function Standings() {
-  const [tabValue, setTabValue] = useState(0);
+  // Initialize with the stored value (defaulting to 0 if not found)
+  const [tabValue, setTabValue] = useState(() => {
+    try {
+      const storedValue = localStorage.getItem(CONFERENCE_TAB_STORAGE_KEY);
+      return storedValue !== null ? parseInt(storedValue, 10) : 0;
+    } catch (error) {
+      console.warn("Error accessing localStorage:", error);
+      return 0;
+    }
+  });
+
   const [standings, setStandings] = useState({ east: [], west: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -591,6 +604,12 @@ function Standings() {
 
   const handleTabChange = useCallback((event, newValue) => {
     setTabValue(newValue);
+    // Store the selected tab in localStorage
+    try {
+      localStorage.setItem(CONFERENCE_TAB_STORAGE_KEY, newValue.toString());
+    } catch (error) {
+      console.warn("Error storing in localStorage:", error);
+    }
   }, []);
 
   useEffect(() => {

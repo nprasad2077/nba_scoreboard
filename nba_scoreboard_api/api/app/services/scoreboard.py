@@ -249,7 +249,7 @@ def scoreboard_changed(old_data: List[Dict], new_data: List[Dict]) -> bool:
     return False
 
 
-# Modified ScoreboardManager class for app/services/scoreboard.py
+## Modified ScoreboardManager class for app/services/scoreboard.py
 
 
 class ScoreboardManager:
@@ -279,7 +279,8 @@ class ScoreboardManager:
         """
         Check if the new game data represents a valid progression from previous states.
 
-        This function enforces logical game progression rules to filter out invalid/inconsistent updates.
+        This function filters out obviously invalid updates while being more flexible
+        about potential legitimate changes that might appear invalid.
 
         Args:
             game_id: The unique identifier for the game
@@ -300,20 +301,55 @@ class ScoreboardManager:
         # Get the last known state
         last_state = self.game_state_history[game_id][-1]
 
-        # Rule 1: Period should never decrease during a live game
-        if new_data["game_status"] == 2 and last_state["game_status"] == 2:
-            if new_data["period"] < last_state["period"]:
+        # If we have at least 3 states in the history, detect if the new state
+        # matches a state we've seen before in the alternating pattern
+        if len(self.game_state_history[game_id]) >= 3:
+            # Get the older states
+            older_state = self.game_state_history[game_id][-2]
+            oldest_state = self.game_state_history[game_id][-3]
+
+            # Check if we've seen a pattern like A -> B -> A
+            if self._states_are_equivalent(
+                new_data, oldest_state
+            ) and not self._states_are_equivalent(new_data, last_state):
+                # We're seeing the same state alternate twice, which indicates flapping
+                logger.warning(
+                    f"Detected alternating game states for game {game_id} - stabilizing"
+                )
+
+                # Instead of rejecting, we'll use the last state consistently
+                # This maintains the most recent state rather than bouncing back and forth
+                return False
+
+        # More flexible rule for period regression
+        # Only reject if we have multiple confirmations of the higher period
+        if new_data["period"] < last_state["period"]:
+            # Check if we've seen the higher period consistently
+            consistent_higher_period = False
+            for i in range(min(3, len(self.game_state_history[game_id]))):
+                if (
+                    self.game_state_history[game_id][-(i + 1)]["period"]
+                    == last_state["period"]
+                ):
+                    consistent_higher_period = True
+                else:
+                    consistent_higher_period = False
+                    break
+
+            if consistent_higher_period:
                 logger.warning(
                     f"Rejected invalid period regression for game {game_id}: "
                     f"period {last_state['period']} -> {new_data['period']}"
                 )
                 return False
+            else:
+                # If we haven't consistently seen the higher period, accept this as a correction
+                logger.info(
+                    f"Allowing period correction for game {game_id}: "
+                    f"period {last_state['period']} -> {new_data['period']}"
+                )
 
-        # Rule 2: If period increases, allow it (natural progression)
-        if new_data["period"] > last_state["period"]:
-            return True
-
-        # Rule 3: If in the same period, ensure clock is progressing forward (decreasing)
+        # More flexible rule for clock regression
         if (
             new_data["period"] == last_state["period"]
             and new_data["game_status"] == 2
@@ -325,31 +361,134 @@ class ScoreboardManager:
 
             # Only validate if both clocks can be parsed
             if old_seconds is not None and new_seconds is not None:
-                # Clock should be decreasing (time moving forward)
-                if new_seconds > old_seconds:
-                    # Allow some tolerance for small clock adjustments (e.g., official review)
-                    if new_seconds - old_seconds > 5:  # More than 5 seconds backwards
+                # Allow more substantial clock corrections (up to 30 seconds)
+                # This helps with clock resets after timeouts, fouls, etc.
+                if new_seconds > old_seconds and new_seconds - old_seconds > 30:
+                    # Look for patterns in our history
+                    clock_regression_pattern = False
+
+                    # Check if this regression has happened multiple times
+                    if len(self.game_state_history[game_id]) >= 4:
+                        prev_clocks = [
+                            parse_game_clock(
+                                self.game_state_history[game_id][-(i + 1)]["clock"]
+                            )
+                            for i in range(3)
+                        ]
+
+                        # If clocks have been consistently decreasing except for this one
+                        if all(
+                            prev_clocks[i] is not None
+                            and prev_clocks[i + 1] is not None
+                            and prev_clocks[i] > prev_clocks[i + 1]
+                            for i in range(len(prev_clocks) - 1)
+                        ):
+                            clock_regression_pattern = True
+
+                    if clock_regression_pattern:
                         logger.warning(
                             f"Rejected invalid clock regression for game {game_id}: "
                             f"{last_state['clock']} -> {new_data['clock']}"
                         )
                         return False
+                    else:
+                        # Accept the clock update as a legitimate correction
+                        logger.info(
+                            f"Allowing clock correction for game {game_id}: "
+                            f"{last_state['clock']} -> {new_data['clock']}"
+                        )
 
-        # Rule 4: Score should never decrease during a game
+        # More flexible rule for score decreases
+        # Only reject score decreases if they're significant (more than 2 points)
+        # and if the previous score was consistent for multiple updates
         if (
             new_data["home_team"]["score"] < last_state["home_team"]["score"]
             or new_data["away_team"]["score"] < last_state["away_team"]["score"]
         ):
-            logger.warning(f"Rejected invalid score decrease for game {game_id}")
-            return False
 
-        # Rule 5: Game status should never go backwards (1->2->3)
-        if new_data["game_status"] < last_state["game_status"]:
+            home_score_diff = (
+                last_state["home_team"]["score"] - new_data["home_team"]["score"]
+            )
+            away_score_diff = (
+                last_state["away_team"]["score"] - new_data["away_team"]["score"]
+            )
+            max_score_diff = max(home_score_diff, away_score_diff)
+
+            # Only worry about significant score decreases
+            if max_score_diff > 2:
+                # Check if previous scores were consistent
+                consistent_previous_score = False
+                if len(self.game_state_history[game_id]) >= 3:
+                    consistent_previous_score = True
+                    for i in range(min(2, len(self.game_state_history[game_id]) - 1)):
+                        prev_state = self.game_state_history[game_id][-(i + 1)]
+                        if (
+                            prev_state["home_team"]["score"]
+                            != last_state["home_team"]["score"]
+                            or prev_state["away_team"]["score"]
+                            != last_state["away_team"]["score"]
+                        ):
+                            consistent_previous_score = False
+                            break
+
+                if consistent_previous_score:
+                    logger.warning(
+                        f"Rejected invalid score decrease for game {game_id}"
+                    )
+                    return False
+                else:
+                    # If scores weren't consistent, accept this as a correction
+                    logger.info(f"Allowing score correction for game {game_id}")
+
+        # Game status regression check (less restrictive)
+        # Only validate when transitioning from finished (3) back to in progress (2)
+        if (
+            new_data["game_status"] < last_state["game_status"]
+            and last_state["game_status"] == 3
+        ):
             logger.warning(
                 f"Rejected invalid status regression for game {game_id}: "
                 f"status {last_state['game_status']} -> {new_data['game_status']}"
             )
             return False
+
+        return True
+
+    def _states_are_equivalent(self, state1: Dict, state2: Dict) -> bool:
+        """
+        Check if two game states are effectively equivalent.
+
+        Args:
+            state1: First game state
+            state2: Second game state
+
+        Returns:
+            True if states are equivalent, False otherwise
+        """
+        # Check core game state
+        if (
+            state1["game_status"] != state2["game_status"]
+            or state1["period"] != state2["period"]
+        ):
+            return False
+
+        # Check scores (allow small differences)
+        home_score_diff = abs(
+            state1["home_team"]["score"] - state2["home_team"]["score"]
+        )
+        away_score_diff = abs(
+            state1["away_team"]["score"] - state2["away_team"]["score"]
+        )
+        if home_score_diff > 1 or away_score_diff > 1:
+            return False
+
+        # Check clock (approximately)
+        clock1 = parse_game_clock(state1["clock"])
+        clock2 = parse_game_clock(state2["clock"])
+        if clock1 is not None and clock2 is not None:
+            # If clocks are more than 10 seconds different, they're not equivalent
+            if abs(clock1 - clock2) > 10:
+                return False
 
         return True
 
@@ -390,88 +529,73 @@ class ScoreboardManager:
         # Standardize game clocks first
         standardized_data = standardize_game_clocks(data)
 
-        valid_updates = []
+        # Create a map of current games by ID for reference
+        current_games_map = {g["game_id"]: g for g in self.current_games}
 
-        # First pass: validate each game update individually
+        # Process each game separately
+        processed_games = []
+        has_changes = False
+
         for new_game in standardized_data:
             game_id = new_game["game_id"]
 
-            # Check if this update represents valid game progression
+            # Get the current state of this game if we have it
+            current_game = current_games_map.get(game_id)
+
+            # Check if this update is valid progression
             if self.is_valid_game_progression(game_id, new_game):
-                # Additional check for timestamps to prevent frequent updates
+                # Update timestamp and history
                 current_time = time.time()
-                time_since_last_update = current_time - self.last_update_timestamp.get(
-                    game_id, 0
-                )
+                self.last_update_timestamp[game_id] = current_time
+                self.update_game_history(game_id, new_game)
 
-                # Add to valid updates if it's been at least 1 second since the last update
-                # or if it's a significant state change (period change, game status change)
-                old_game = next(
-                    (g for g in self.current_games if g["game_id"] == game_id), None
-                )
-                significant_change = (
-                    old_game is None
-                    or old_game["game_status"] != new_game["game_status"]
-                    or old_game["period"] != new_game["period"]
-                    or abs(
-                        old_game["home_team"]["score"] - new_game["home_team"]["score"]
-                    )
-                    >= 2
-                    or abs(
-                        old_game["away_team"]["score"] - new_game["away_team"]["score"]
-                    )
-                    >= 2
-                )
+                # Add to processed games
+                processed_games.append(new_game)
 
-                if time_since_last_update >= 1.0 or significant_change:
-                    valid_updates.append(new_game)
-                    self.last_update_timestamp[game_id] = current_time
+                # Check if this game has meaningful changes
+                if current_game:
+                    if (
+                        current_game["game_status"] != new_game["game_status"]
+                        or current_game["period"] != new_game["period"]
+                        or current_game["clock"] != new_game["clock"]
+                        or current_game["home_team"]["score"]
+                        != new_game["home_team"]["score"]
+                        or current_game["away_team"]["score"]
+                        != new_game["away_team"]["score"]
+                    ):
+                        has_changes = True
+                else:
+                    # New game we haven't seen before
+                    has_changes = True
+            else:
+                # For invalid updates, keep the current state if we have it
+                if current_game:
+                    processed_games.append(current_game)
+                else:
+                    # If we don't have current state, use this one as baseline
+                    # but mark that we've seen it so we can validate future updates
                     self.update_game_history(game_id, new_game)
+                    processed_games.append(new_game)
+                    has_changes = True
 
-        if not valid_updates:
+        # Check for games that are in our current list but not in the new data
+        # (shouldn't happen, but handle it just in case)
+        for game_id, game in current_games_map.items():
+            if game_id not in [g["game_id"] for g in standardized_data]:
+                # Keep this game in our list
+                processed_games.append(game)
+
+        # If nothing has changed, don't broadcast
+        if not has_changes and len(processed_games) == len(self.current_games):
             return False
 
-        # Second pass: check if the overall scoreboard has changed
+        # Update our current games list
         async with self._lock:
-            # Create a map for faster comparison
-            current_map = {g["game_id"]: g for g in self.current_games}
-            has_changes = False
-
-            for game in valid_updates:
-                game_id = game["game_id"]
-                if game_id not in current_map:
-                    has_changes = True
-                    break
-
-                old_game = current_map[game_id]
-                if (
-                    old_game["game_status"] != game["game_status"]
-                    or old_game["period"] != game["period"]
-                    or old_game["clock"] != game["clock"]
-                    or old_game["home_team"]["score"] != game["home_team"]["score"]
-                    or old_game["away_team"]["score"] != game["away_team"]["score"]
-                ):
-                    has_changes = True
-                    break
-
-            if not has_changes:
-                return False
-
-            # Update our current games list with the valid updates
-            new_current_games = []
-
-            # First add games that didn't get updated
-            for old_game in self.current_games:
-                if old_game["game_id"] not in [g["game_id"] for g in valid_updates]:
-                    new_current_games.append(old_game)
-
-            # Then add the valid updates
-            new_current_games.extend(valid_updates)
-            self.current_games = new_current_games
+            self.current_games = processed_games
 
         # Convert any datetime objects to strings
         json_data = json.loads(
-            json.dumps(valid_updates, default=self._serialize_datetime)
+            json.dumps(processed_games, default=self._serialize_datetime)
         )
 
         # Broadcast to all connections
