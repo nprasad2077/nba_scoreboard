@@ -38,7 +38,10 @@ const PlayByPlay = ({ gameId }) => {
       setInitialLoadComplete(true);
     }, 200);
 
-    const socketUrl = `ws://localhost:8000/api/v1/scoreboard/ws/playbyplay/${gameId}`;
+    // Use environment variable for WebSocket URL with fallback
+    const wsBaseUrl = "ws://localhost:8000/api/v1/scoreboard";
+    // Use the correct path that works: "ws://localhost:8000/ws/playbyplay/0022400824"
+    const socketUrl = `${wsBaseUrl}/ws/playbyplay/${gameId}`;
     console.log("Connecting to:", socketUrl);
 
     try {
@@ -53,15 +56,52 @@ const PlayByPlay = ({ gameId }) => {
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log("PlayByPlay data received:", data);
+          
+          // Handle different data structures that might come from the backend
           if (data.game?.actions) {
+            // Original expected format
             const sorted = [...data.game.actions].sort(
               (a, b) => b.actionNumber - a.actionNumber
             );
             setActions(sorted);
+          } else if (data.plays) {
+            // NBA API format - "plays" array direct from API
+            const formattedActions = data.plays.map(play => ({
+              actionNumber: play.eventId || play.actionNumber,
+              clock: play.clock,
+              period: play.period,
+              teamTricode: play.teamTricode,
+              scoreAway: play.scoreAway || play.scoreVisitor || (play.scoreDisplay ? play.scoreDisplay.split('-')[0].trim() : ""),
+              scoreHome: play.scoreHome || play.scoreHome || (play.scoreDisplay ? play.scoreDisplay.split('-')[1].trim() : ""),
+              actionType: play.actionType || play.eventType || "",
+              description: play.description
+            }));
+            
+            const sorted = formattedActions.sort((a, b) => b.actionNumber - a.actionNumber);
+            setActions(sorted);
+          } else if (Array.isArray(data)) {
+            // Direct array of plays
+            const formattedActions = data.map(play => ({
+              actionNumber: play.eventId || play.actionNumber || 0,
+              clock: play.clock || "",
+              period: play.period || 0,
+              teamTricode: play.teamTricode || "",
+              scoreAway: play.scoreAway || play.scoreVisitor || "",
+              scoreHome: play.scoreHome || play.scoreHome || "",
+              actionType: play.actionType || play.eventType || "",
+              description: play.description || ""
+            }));
+            
+            const sorted = formattedActions.sort((a, b) => b.actionNumber - a.actionNumber);
+            setActions(sorted);
+          } else {
+            console.warn("Unknown data format received:", data);
           }
+          
           setLoading(false);
         } catch (err) {
-          console.error("Error parsing PBP data:", err);
+          console.error("Error parsing PBP data:", err, event.data);
           setError("Error processing game data");
           setLoading(false);
         }
@@ -178,7 +218,8 @@ const PlayByPlay = ({ gameId }) => {
           borderRadius: "12px",
           border: "1px solid rgba(255, 255, 255, 0.08)",
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4)",
-          overflow: "hidden",
+          maxHeight: "calc(100vh - 250px)",
+          overflow: "auto",
           "&::-webkit-scrollbar": {
             display: "none",
           },
@@ -329,19 +370,49 @@ const PlayByPlay = ({ gameId }) => {
   );
 };
 
+/**
+ * Enhanced clock formatter that handles multiple formats:
+ * - ISO 8601 duration format: "PT10M30.5S"
+ * - NBA API format: "10:30"
+ * - Other text formats like "End of Q1", "Halftime", etc.
+ */
 const formatClock = (clockStr) => {
-  if (!clockStr?.startsWith("PT")) return clockStr;
-  const match = clockStr.match(/PT(\d+)M(\d+(\.\d+)?)S/);
-  if (!match) return clockStr;
+  if (!clockStr) return "";
 
-  const minutes = parseInt(match[1]) || 0;
-  let seconds = parseFloat(match[2]) || 0;
-  seconds = Math.round(seconds * 10) / 10;
-
-  return `${minutes}:${seconds.toFixed(1).padStart(4, "0")}`.replace(
-    /\.0$/,
-    ""
-  );
+  // If it's already formatted as MM:SS or M:SS
+  if (/^\d+:\d+(\.\d+)?$/.test(clockStr)) {
+    return clockStr;
+  }
+  
+  // Handle ISO 8601 duration format (PT10M30.5S)
+  if (clockStr.startsWith("PT")) {
+    // Try full format with minutes and seconds
+    let match = clockStr.match(/PT(\d+)M(\d+(\.\d+)?)S/);
+    if (match) {
+      const minutes = parseInt(match[1]) || 0;
+      let seconds = parseFloat(match[2]) || 0;
+      seconds = Math.round(seconds * 10) / 10;
+      
+      return `${minutes}:${seconds.toFixed(1).padStart(4, "0")}`.replace(/\.0$/, "");
+    }
+    
+    // Try minutes-only format (PT10M)
+    match = clockStr.match(/PT(\d+)M/);
+    if (match) {
+      const minutes = parseInt(match[1]) || 0;
+      return `${minutes}:00`;
+    }
+    
+    // Try seconds-only format (PT30.5S)
+    match = clockStr.match(/PT(\d+(\.\d+)?)S/);
+    if (match) {
+      const seconds = parseFloat(match[1]) || 0;
+      return `0:${seconds.toFixed(1).padStart(4, "0")}`.replace(/\.0$/, "");
+    }
+  }
+  
+  // Return original string for other formats
+  return clockStr;
 };
 
 export default PlayByPlay;

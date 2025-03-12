@@ -1,88 +1,126 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from "react";
+import { formatGameTime } from "../utils/dateUtils";
 
+/**
+ * Custom hook for WebSocket connection with automatic reconnection
+ * @returns {Object} - Object with games data, connection status, and last update time
+ */
 const useWebSocket = () => {
   const [games, setGames] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
+  // Use refs to maintain values across renders
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+
   useEffect(() => {
-    let ws = null;
-    let reconnectTimeout = null;
-    let reconnectAttempts = 0;
-    const ws_url = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
+    const ws_url = "ws://localhost:8000/api/v1/scoreboard/ws";
+    console.log("WebSocket URL:", ws_url);
 
-    console.log(ws_url)
-
+    /**
+     * Connect to WebSocket with exponential backoff for retries
+     */
     const connectWebSocket = () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
 
       try {
-        ws = new WebSocket(ws_url);
+        wsRef.current = new WebSocket(ws_url);
 
-        ws.onopen = () => {
+        wsRef.current.onopen = () => {
           console.log("Connected to NBA Stats WebSocket");
           setIsConnected(true);
-          reconnectAttempts = 0;
+          reconnectAttemptsRef.current = 0;
         };
 
-        ws.onmessage = (event) => {
+        wsRef.current.onmessage = (event) => {
           try {
-            const gamesData = JSON.parse(event.data);
-            setGames(gamesData);
+            // Parse the incoming data
+            const rawGamesData = JSON.parse(event.data);
+            console.log("Raw WebSocket data received:", rawGamesData);
+
+            // Transform the data to match the expected format in the UI
+            // But keep the original game_status, game_time fields
+            const transformedGames = rawGamesData.map((game) => {
+              // Get computed game time using our improved function
+              const time = formatGameTime(game);
+
+              return {
+                gameId: game.game_id,
+                game_id: game.game_id,
+                game_status: game.game_status,
+                period: game.period,
+                clock: game.clock,
+                game_time: game.game_time,
+                away_team: game.away_team.team_name,
+                away_tricode: game.away_team.team_tricode,
+                home_team: game.home_team.team_name,
+                home_tricode: game.home_team.team_tricode,
+                score: `${game.away_team.score} - ${game.home_team.score}`,
+                time: time,
+              };
+            });
+
+            console.log("Transformed games data:", transformedGames);
+            setGames(transformedGames);
             setLastUpdateTime(new Date());
           } catch (error) {
             console.error("Error parsing WebSocket message:", error);
           }
         };
 
-        ws.onerror = (error) => {
+        wsRef.current.onerror = (error) => {
           console.log(
-            `WebSocket error (attempt ${reconnectAttempts + 1}):`,
+            `WebSocket error (attempt ${reconnectAttemptsRef.current + 1}):`,
             error
           );
           setIsConnected(false);
         };
 
-        ws.onclose = (event) => {
+        wsRef.current.onclose = (event) => {
           console.log(
-            `WebSocket closed (attempt ${reconnectAttempts + 1}):`,
+            `WebSocket closed (attempt ${reconnectAttemptsRef.current + 1}):`,
             event.code,
             event.reason
           );
           setIsConnected(false);
 
-          reconnectAttempts++;
+          reconnectAttemptsRef.current++;
 
+          // Exponential backoff with max of 10 seconds
           const backoffTime = Math.min(
-            1000 * Math.pow(2, reconnectAttempts),
+            1000 * Math.pow(2, reconnectAttemptsRef.current),
             10000
           );
           console.log(`Reconnecting in ${backoffTime}ms...`);
 
-          reconnectTimeout = setTimeout(() => {
+          reconnectTimeoutRef.current = setTimeout(() => {
             console.log("Attempting to reconnect...");
             connectWebSocket();
           }, backoffTime);
         };
       } catch (error) {
         console.error("Error creating WebSocket:", error);
-        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
       }
     };
 
-    reconnectTimeout = setTimeout(() => {
+    // Initial connection attempt with slight delay
+    reconnectTimeoutRef.current = setTimeout(() => {
       console.log("Making initial connection attempt...");
       connectWebSocket();
     }, 5);
 
+    // Cleanup function
     return () => {
-      if (ws) {
-        ws.close();
+      if (wsRef.current) {
+        wsRef.current.close();
       }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, []);
@@ -90,7 +128,7 @@ const useWebSocket = () => {
   return {
     games,
     isConnected,
-    lastUpdateTime
+    lastUpdateTime,
   };
 };
 
