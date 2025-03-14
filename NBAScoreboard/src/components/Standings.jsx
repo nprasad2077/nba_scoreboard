@@ -273,7 +273,7 @@ const StandingsTable = memo(function StandingsTable({ standings }) {
                 width: isXsScreen ? "24px" : isMobile ? "30px" : "40px", // Narrower rank column
               }}
             >
-              {isXsScreen ? "#" : "Rank"}
+              {isXsScreen ? "#" : "#"}
             </TableCell>
             {columnsToDisplay.map((column) => (
               <TableCell
@@ -289,7 +289,7 @@ const StandingsTable = memo(function StandingsTable({ standings }) {
                         ? 80
                         : isMobile
                         ? 120
-                        : 200
+                        : 220
                       : isXsScreen
                       ? "auto"
                       : "40px",
@@ -299,7 +299,7 @@ const StandingsTable = memo(function StandingsTable({ standings }) {
                         ? 80
                         : isMobile
                         ? 120
-                        : 200
+                        : 220
                       : column === "w" || column === "l"
                       ? isXsScreen
                         ? "24px"
