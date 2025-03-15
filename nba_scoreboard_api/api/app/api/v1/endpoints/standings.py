@@ -14,6 +14,8 @@ from app.services.nba_api_utils import get_nba_stats_api, NBA_STATS_HEADERS, NBA
 from nba_api.stats.endpoints import leaguestandings
 import logging
 
+
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 

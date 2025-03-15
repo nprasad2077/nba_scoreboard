@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from nba_api.stats.endpoints import leaguestandings
 from typing import List
+from app.services.nba_api_utils import get_nba_stats_api
 
 from app.models.standings import TeamStanding
 from app.schemas.standings import StandingsResponse
@@ -15,58 +16,57 @@ async def update_standings_database(db: Session) -> None:
     """
     Update the standings in the database with current NBA standings.
     
-    Args:
-        db: Database session
-    
-    Raises:
-        Exception: If there's an error updating the database
+    Uses the NBA API wrapper to ensure consistent headers and an extended timeout.
     """
     try:
-        # Get current standings
-        standings = leaguestandings.LeagueStandings(season='2024-25')
-        df = standings.standings.get_data_frame()
-        
-        try:
-            # Clear existing standings
-            db.query(TeamStanding).delete()
-            
-            # Add new standings
-            for _, row in df.iterrows():
-                db_standing = TeamStanding(
-                    team_id=row['TeamID'],
-                    team_city=row['TeamCity'],
-                    team_name=row['TeamName'],
-                    conference=row['Conference'],
-                    division=row['Division'],
-                    wins=row['WINS'],
-                    losses=row['LOSSES'],
-                    win_pct=row['WinPCT'],
-                    games_back=row['ConferenceGamesBack'],
-                    conference_rank=row['PlayoffRank'],
-                    division_rank=row['DivisionRank'],
-                    home_record=row['HOME'],
-                    road_record=row['ROAD'],
-                    last_ten=row['L10'],
-                    streak=row['CurrentStreak'],
-                    points_pg=row['PointsPG'],
-                    opp_points_pg=row['OppPointsPG'],
-                    division_record=row['DivisionRecord'],
-                    conference_record=row['ConferenceRecord'],
-                    vs_east=f"{row['vsEast']}",
-                    vs_west=f"{row['vsWest']}"
-                )
-                db.add(db_standing)
-            
-            db.commit()
-            logger.info("Successfully updated standings database")
-            
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error updating standings database: {e}")
-            raise
-            
+        # Use the NBA API wrapper to get standings data.
+        # Here we override the timeout (e.g., 120 seconds) to avoid read timeouts.
+        standings_api = get_nba_stats_api(
+            leaguestandings.LeagueStandings,
+            season='2024-25',
+            timeout=120  # Increase timeout to help prevent read timeouts
+        )
+        df = standings_api.standings.get_data_frame()
     except Exception as e:
         logger.error(f"Error fetching standings data: {e}")
+        raise
+
+    try:
+        # Clear out any existing standings in the database
+        db.query(TeamStanding).delete()
+        
+        # Loop over each row in the dataframe and create a new TeamStanding record
+        for _, row in df.iterrows():
+            db_standing = TeamStanding(
+                team_id=row['TeamID'],
+                team_city=row['TeamCity'],
+                team_name=row['TeamName'],
+                conference=row['Conference'],
+                division=row['Division'],
+                wins=row['WINS'],
+                losses=row['LOSSES'],
+                win_pct=row['WinPCT'],
+                games_back=row['ConferenceGamesBack'],
+                conference_rank=row['PlayoffRank'],
+                division_rank=row['DivisionRank'],
+                home_record=row['HOME'],
+                road_record=row['ROAD'],
+                last_ten=row['L10'],
+                streak=row['CurrentStreak'],
+                points_pg=row['PointsPG'],
+                opp_points_pg=row['OppPointsPG'],
+                division_record=row['DivisionRecord'],
+                conference_record=row['ConferenceRecord'],
+                vs_east=str(row['vsEast']),
+                vs_west=str(row['vsWest'])
+            )
+            db.add(db_standing)
+        
+        db.commit()
+        logger.info("Successfully updated standings database")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating standings database: {e}")
         raise
 
 async def get_conference_standings(
