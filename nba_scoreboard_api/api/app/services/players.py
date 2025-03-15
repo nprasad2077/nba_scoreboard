@@ -2,7 +2,8 @@
 import logging
 from sqlalchemy.orm import Session
 from nba_api.stats.endpoints import commonallplayers, playergamelogs
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, List
+from app.services.nba_api_utils import get_nba_stats_api
 
 from app.models.players import Player
 from app.schemas.players import PlayerStats, PlayerBase, GameStats
@@ -21,8 +22,9 @@ async def update_player_database(db: Session) -> None:
         Exception: If there's an error updating the database
     """
     try:
-        # Get all current NBA players
-        all_players = commonallplayers.CommonAllPlayers(
+        # Get all current NBA players using our wrapper
+        all_players = get_nba_stats_api(
+            commonallplayers.CommonAllPlayers,
             is_only_current_season=1,
             league_id='00',
             season='2024-25'
@@ -78,13 +80,15 @@ async def get_player_recent_games(
         return None
     
     try:
-        # Fetch game logs from NBA API
-        logs = playergamelogs.PlayerGameLogs(
+        # Fetch game logs from NBA API using our wrapper
+        logs = get_nba_stats_api(
+            playergamelogs.PlayerGameLogs,
             player_id_nullable=player_id,
             season_nullable="2024-25",
             season_type_nullable="Regular Season",
             last_n_games_nullable=last_n_games
         )
+        
         df_games = logs.get_data_frames()[0]
         
         # Convert player to PlayerBase model
