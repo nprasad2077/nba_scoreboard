@@ -14,7 +14,7 @@ export const fetchBoxScore = async (gameId) => {
   const id = typeof gameId === 'object' ? (gameId.game_id || gameId.gameId) : gameId;
   
   try {
-    const baseUrl = "http://localhost:8000/api/v1/scoreboard/boxscore";
+    const baseUrl = "https://api.server.nbaapi.com/api/v1/scoreboard/boxscore";
     const response = await fetch(`${baseUrl}/${id}`);
     
     if (!response.ok) {
@@ -43,7 +43,7 @@ export const fetchHistoricalGames = async (date) => {
     });
     
     // Use explicit localhost URL for testing
-    const baseUrl = "http://localhost:8000/api/v1/scoreboard/past";
+    const baseUrl = "https://api.server.nbaapi.com/api/v1/scoreboard/past";
     
     // Format the date as YYYY-MM-DD for the API
     const formattedDate = date.format("YYYY-MM-DD");
@@ -75,7 +75,7 @@ export const fetchHistoricalGames = async (date) => {
  */
 export const fetchPlayerStats = async (playerName) => {
   try {
-    const baseUrl = import.meta.env.VITE_PLAYER_STATS_URL || "http://localhost:8000/api/v1/players/search";
+    const baseUrl = import.meta.env.VITE_PLAYER_STATS_URL || "https://api.server.nbaapi.com/api/v1/players/search";
     const response = await fetch(`${baseUrl}/${encodeURIComponent(playerName)}`);
     
     if (!response.ok) {

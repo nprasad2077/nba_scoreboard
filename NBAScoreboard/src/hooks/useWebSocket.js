@@ -16,7 +16,7 @@ const useWebSocket = () => {
   const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
-    const ws_url = "ws://localhost:8000/api/v1/scoreboard/ws";
+    const ws_url = "wss://api.server.nbaapi.com/api/v1/scoreboard/ws";
     console.log("WebSocket URL:", ws_url);
 
     /**

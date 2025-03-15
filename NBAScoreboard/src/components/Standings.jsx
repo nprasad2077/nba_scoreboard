@@ -622,10 +622,10 @@ function Standings() {
         // Use a single fetch call with the server that returns all data at once if possible
         // Fallback to parallel fetches with AbortController for cancellation
         const [eastResponse, westResponse] = await Promise.all([
-          fetch("http://localhost:8000/api/v1/standings/conference/east", {
+          fetch("https://api.server.nbaapi.com/api/v1/standings/conference/east", {
             signal,
           }),
-          fetch("http://localhost:8000/api/v1/standings/conference/west", {
+          fetch("https://api.server.nbaapi.com/api/v1/standings/conference/west", {
             signal,
           }),
         ]);

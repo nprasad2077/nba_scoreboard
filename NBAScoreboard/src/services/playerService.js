@@ -13,7 +13,7 @@ export const searchPlayersByName = async (query) => {
   
   try {
     // Use the exact URL format expected by the backend - without the /api/v1/ prefix
-    const baseUrl = import.meta.env.VITE_PLAYER_SEARCH_URL || "http://localhost:8000/api/v1/players/search/";
+    const baseUrl = import.meta.env.VITE_PLAYER_SEARCH_URL || "https://api.server.nbaapi.com/api/v1/players/search/";
     
     // Ensure we have the correct URL format with trailing slash before the query parameter
     // The backend expects /players/search/?query=value
@@ -49,7 +49,7 @@ export const fetchPlayerGameStats = async (playerId, lastNGames = 10) => {
   if (!playerId) return null;
   
   try {
-    const baseUrl = import.meta.env.VITE_PLAYER_GAMES_URL || "http://localhost:8000/api/v1/players";
+    const baseUrl = import.meta.env.VITE_PLAYER_GAMES_URL || "https://api.server.nbaapi.com/api/v1/players";
     // Ensure proper path format with no double slashes
     const url = `${baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl}/${playerId}/games?last_n_games=${lastNGames}`;
     

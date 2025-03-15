@@ -39,7 +39,7 @@ const PlayByPlay = ({ gameId }) => {
     }, 200);
 
     // Use environment variable for WebSocket URL with fallback
-    const wsBaseUrl = "ws://localhost:8000/api/v1/scoreboard";
+    const wsBaseUrl = "wss://api.server.nbaapi.com/api/v1/scoreboard";
     // Use the correct path that works: "ws://localhost:8000/ws/playbyplay/0022400824"
     const socketUrl = `${wsBaseUrl}/ws/playbyplay/${gameId}`;
     console.log("Connecting to:", socketUrl);
