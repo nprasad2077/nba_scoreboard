@@ -138,6 +138,7 @@ async def get_box_score_fixed(game_id: str):
 def standardize_game_clocks(games_data: List[Dict]) -> List[Dict]:
     """
     Standardize game clocks to a consistent format and filter out invalid formats.
+    Improved version with better format handling.
 
     Args:
         games_data: List of game data dictionaries
@@ -158,22 +159,31 @@ def standardize_game_clocks(games_data: List[Dict]) -> List[Dict]:
         if clock is None or clock.strip() in ("", " "):
             # Set empty/blank clocks to None
             game_copy["clock"] = None
-        elif clock.startswith("PT") and "M" in clock and "S" in clock:
-            # ISO 8601 Duration format - keep as is
-            pass
-        elif re.match(r"\d+:\d+\s*", clock):
-            # Convert "5:06 " format to ISO 8601 duration format
-            try:
-                parts = clock.strip().split(":")
-                minutes = int(parts[0])
-                seconds = int(parts[1])
-                game_copy["clock"] = f"PT{minutes:02d}M{seconds:02d}.00S"
-            except (ValueError, IndexError):
-                # If conversion fails, set to None
-                game_copy["clock"] = None
-        else:
-            # Unknown format, set to None
-            game_copy["clock"] = None
+        elif isinstance(clock, str):
+            # Try to standardize the format
+            if clock.startswith("PT") and "M" in clock and "S" in clock:
+                # ISO 8601 Duration format - keep as is
+                pass
+            elif re.match(r"\d+:\d+\s*", clock):
+                # Convert "5:06 " format to ISO 8601 duration format
+                try:
+                    parts = clock.strip().split(":")
+                    minutes = int(parts[0])
+                    seconds = float(parts[1]) if "." in parts[1] else int(parts[1])
+                    game_copy["clock"] = f"PT{minutes:02d}M{seconds:02.2f}S"
+                except (ValueError, IndexError):
+                    # If conversion fails, keep the original format
+                    pass
+            elif re.match(r"^\d+(?:\.\d+)?$", clock.strip()):
+                # Single number (seconds) format
+                try:
+                    seconds = float(clock.strip())
+                    minutes = int(seconds // 60)
+                    remaining_seconds = seconds % 60
+                    game_copy["clock"] = f"PT{minutes:02d}M{remaining_seconds:.2f}S"
+                except ValueError:
+                    # If conversion fails, keep the original format
+                    pass
 
         standardized_games.append(game_copy)
 
@@ -184,49 +194,52 @@ def parse_game_clock(clock_str: Optional[str]) -> Optional[float]:
     """
     Parse the game clock string into seconds remaining.
     Handles multiple formats including ISO 8601 duration and MM:SS formats.
-    
+
     Args:
         clock_str: Game clock string
-        
+
     Returns:
         Seconds remaining in the period, or None if parsing fails
     """
     if not clock_str:
         return None
-        
+
     try:
+        # Clean the string first - remove any extra whitespace
+        clock_str = clock_str.strip()
+
         # Format: "PT12M34.56S" (ISO 8601 duration)
         if clock_str.startswith("PT"):
             minutes = 0
             seconds = 0
-            
+
             # Extract minutes if present
             min_match = re.search(r"(\d+)M", clock_str)
             if min_match:
                 minutes = int(min_match.group(1))
-                
+
             # Extract seconds if present
             sec_match = re.search(r"(\d+(?:\.\d+)?)S", clock_str)
             if sec_match:
                 seconds = float(sec_match.group(1))
-                
+
             return minutes * 60 + seconds
-            
+
         # Format: "12:34" (MM:SS)
         elif ":" in clock_str:
-            parts = clock_str.strip().split(":")
+            parts = clock_str.split(":")
             if len(parts) == 2:
-                minutes = int(parts[0])
-                seconds = float(parts[1])
+                minutes = int(parts[0].strip())
+                seconds = float(parts[1].strip())
                 return minutes * 60 + seconds
-                
+
         # Format: "12.3" (seconds only)
-        elif re.match(r"^\d+(?:\.\d+)?$", clock_str.strip()):
-            return float(clock_str.strip())
-            
+        elif re.match(r"^\d+(?:\.\d+)?$", clock_str):
+            return float(clock_str)
+
     except (ValueError, AttributeError) as e:
         logger.debug(f"Error parsing clock string '{clock_str}': {e}")
-        
+
     return None
 
 
@@ -338,6 +351,7 @@ class ScoreboardManager:
     def _standardize_clock(self, clock_str: Optional[str]) -> Optional[str]:
         """
         Standardize game clock to ISO 8601 duration format.
+        Improved version that handles more edge cases correctly.
 
         Args:
             clock_str: Original clock string
@@ -348,16 +362,20 @@ class ScoreboardManager:
         if not clock_str or clock_str.strip() in ("", " "):
             return None
 
+        # Clean the input
+        clock_str = clock_str.strip()
+
         # Already in ISO 8601 format
         if clock_str.startswith("PT") and ("M" in clock_str or "S" in clock_str):
             return clock_str
 
         # "MM:SS" format
-        if match := re.match(r"(\d+):(\d{2})(?:\.(\d+))?", clock_str.strip()):
+        if match := re.match(r"(\d+):(\d{1,2})(?:\.(\d+))?", clock_str):
             minutes = int(match.group(1))
             seconds = int(match.group(2))
             milliseconds = match.group(3)
 
+            # Format properly with leading zeros for seconds
             if milliseconds:
                 return f"PT{minutes:02d}M{seconds:02d}.{milliseconds}S"
             else:
@@ -365,28 +383,36 @@ class ScoreboardManager:
 
         # "X.Y seconds" format
         if match := re.match(
-            r"(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?", clock_str.strip(), re.IGNORECASE
+            r"(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?", clock_str, re.IGNORECASE
         ):
             seconds = float(match.group(1))
             minutes = int(seconds // 60)
             remaining_seconds = seconds % 60
             return f"PT{minutes:02d}M{remaining_seconds:.2f}S"
 
+        # Try direct seconds parsing
+        try:
+            seconds = float(clock_str)
+            minutes = int(seconds // 60)
+            remaining_seconds = seconds % 60
+            return f"PT{minutes:02d}M{remaining_seconds:.2f}S"
+        except ValueError:
+            pass
+
         # If we can't parse it, return None
         logger.warning(f"Unable to standardize clock format: {clock_str}")
         return None
 
-    def _is_clock_regression(
-        self, old_clock: Optional[str], new_clock: Optional[str], game_status: int
-    ) -> bool:
+    def _is_clock_regression(self, old_clock: Optional[str], new_clock: Optional[str], game_status: int, period: int) -> bool:
         """
         Check if the new clock represents an invalid regression (time going up).
-        Only applies for in-progress games.
+        Improved version that handles period changes and is more tolerant of small variations.
 
         Args:
             old_clock: Previous clock value
             new_clock: New clock value
             game_status: Current game status
+            period: Current period
 
         Returns:
             True if regression is detected and invalid, False otherwise
@@ -404,9 +430,28 @@ class ScoreboardManager:
         if old_seconds is None or new_seconds is None:
             return False
 
+        # Regression logic:
+        # 1. Allow clock to increase by any amount when moving to a new period 
+        #    (it goes from 0:00 in one period to 12:00 in the next)
+        # 2. Allow minor clock adjustments (up to 5 seconds) during the same period
+        #    (this accommodates small corrections by officials)
+        # 3. Reject large unexplained increases in the same period
+
+        # Check if both clocks are typical end-of-period times
+        is_period_end = old_seconds < 1.0  # Old clock is at or near 0:00
+        
+        # If we're at the end of a period, always accept the new clock
+        # as it's likely the start of a new period
+        if is_period_end:
+            return False
+            
         # Clock should generally decrease (or stay same) during gameplay
-        # Allow up to 30 second regression for clock corrections (after timeouts, fouls, etc.)
-        return new_seconds > old_seconds and (new_seconds - old_seconds) > 30.0
+        # Allow up to 5 second regression for clock corrections (after timeouts, fouls, etc.)
+        time_regression = new_seconds > old_seconds
+        regression_amount = new_seconds - old_seconds if time_regression else 0
+        
+        # Reject only significant unexplained regressions (> 5 seconds)
+        return time_regression and regression_amount > 5.0
 
     def _is_reasonable_score_change(self, old_score: int, new_score: int) -> bool:
         """
@@ -480,6 +525,7 @@ class ScoreboardManager:
     def _validate_and_merge_game(self, game_id: str, new_game: Dict) -> Dict:
         """
         Validate new game data against current state and merge intelligently.
+        Improved version with better clock handling.
 
         Args:
             game_id: Game identifier
@@ -516,24 +562,32 @@ class ScoreboardManager:
 
         # Period changes
         # Only allow period to increase or stay the same in early phases
-        # Later allow corrections like 2->1 if consistent
+        # Later allow corrections
         if new_game["period"] > current_game["period"]:
             # Always allow period to advance
             result["period"] = new_game["period"]
+            # When period advances, ALWAYS accept the new clock
+            # (this ensures the clock is correctly reset for the new period)
+            result["clock"] = new_game["clock"]
         elif new_game["period"] < current_game["period"] and not early_phase:
             # Only allow period to decrease after many updates (likely a correction)
             result["period"] = new_game["period"]
-
-        # Clock changes
-        if new_game["clock"] is not None:
-            if current_game["clock"] is None:
-                # If we had no clock before, accept the new one
-                result["clock"] = new_game["clock"]
-            elif not self._is_clock_regression(
-                current_game["clock"], new_game["clock"], current_game["game_status"]
-            ):
-                # Accept clock if it doesn't show an invalid regression
-                result["clock"] = new_game["clock"]
+            # Also accept the clock when period is corrected
+            result["clock"] = new_game["clock"]
+        else:
+            # Same period - handle clock changes
+            if new_game["clock"] is not None:
+                if current_game["clock"] is None:
+                    # If we had no clock before, accept the new one
+                    result["clock"] = new_game["clock"]
+                elif not self._is_clock_regression(
+                    current_game["clock"], 
+                    new_game["clock"], 
+                    current_game["game_status"],
+                    current_game["period"]  # Pass period to improved function
+                ):
+                    # Accept clock if it doesn't show an invalid regression
+                    result["clock"] = new_game["clock"]
 
         # Score changes
         for team_key in ["home_team", "away_team"]:
@@ -544,10 +598,7 @@ class ScoreboardManager:
             if current_score == 0 or early_phase:
                 result[team_key]["score"] = new_score
             # Normal case: Game in progress, validate score changes
-            elif (
-                self._is_reasonable_score_change(current_score, new_score)
-                or not early_phase
-            ):
+            elif self._is_reasonable_score_change(current_score, new_score) or not early_phase:
                 result[team_key]["score"] = new_score
 
         # Always update non-critical fields
@@ -595,6 +646,7 @@ class ScoreboardManager:
     async def broadcast(self, games_data: List[Dict]) -> bool:
         """
         Process new game data and broadcast to clients if needed.
+        Improved version with better clock handling.
 
         Args:
             games_data: List of new game data from the API
@@ -610,12 +662,15 @@ class ScoreboardManager:
         if (current_time - self.last_broadcast_time) < self.broadcast_cooldown:
             return False
 
+        # First, standardize all game clocks to ensure consistent formats
+        standardized_games = standardize_game_clocks(games_data)
+
         # Track if we have any meaningful changes to broadcast
         has_changes = False
         processed_games = {}
 
         # Process each game
-        for game in games_data:
+        for game in standardized_games:
             # Clean and normalize the game data
             cleaned_game = self._clean_game_data(game)
             game_id = cleaned_game["game_id"]
