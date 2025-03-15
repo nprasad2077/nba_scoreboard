@@ -11,6 +11,8 @@ services:
     environment:
       - API_URL=https://api.server.nbaapi.com
       - FRONTEND_URL=https://scoreboard.server.nbaapi.com
+      - NBA_API_TIMEOUT=60
+      - TESTING=true  # Skip initial NBA API calls
     labels:
       # Enable Traefik
       - "traefik.enable=true"

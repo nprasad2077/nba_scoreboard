@@ -1,21 +1,19 @@
 #!/bin/sh
 set -e
 
-# Try to install alembic if missing
-pip install alembic || echo "Failed to install alembic, may already be installed"
+# First make sure alembic is properly installed
+pip install --force-reinstall alembic>=1.12.0
+
+# Set environment variables for more resilient startup
+export NBA_API_TIMEOUT=60
+export TESTING=true  # Skip initial NBA API calls for startup
 
 # Start the FastAPI backend using uvicorn
 cd /app/nba_scoreboard_api/api
 python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
 
 # Wait a bit for backend to initialize
 sleep 5
-
-# Check if backend is still running
-if ! ps -p $BACKEND_PID > /dev/null; then
-  echo "Warning: Backend failed to start properly, but continuing with frontend"
-fi
 
 # Serve static files for the frontend
 cd /app/nba_scoreboard_api/static

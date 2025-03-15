@@ -13,6 +13,7 @@ from app.api.v1.endpoints import router as api_router
 from app.services.players import update_player_database
 from app.services.standings import update_standings_database
 import random
+from fastapi.staticfiles import StaticFiles
 
 # Import these from your scoreboard service (restores old approach)
 from app.services.scoreboard import scoreboard_manager, get_live_scoreboard
@@ -27,28 +28,45 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
 
     # 1) Initialize DB
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        logger.error(f"Error initializing database, continuing anyway: {e}")
 
     # 2) Update player data + standings if not in testing mode
     if not settings.TESTING:
         db = SessionLocal()
         try:
-            await update_player_database(db)
-            await update_standings_database(db)
+            try:
+                await update_player_database(db)
+            except Exception as e:
+                logger.warning(f"Non-critical error updating player database: {e}")
+                
+            try:
+                await update_standings_database(db)
+            except Exception as e:
+                logger.warning(f"Non-critical error updating standings database: {e}")
         finally:
             db.close()
 
     # 3) Start background scoreboard task
-    scoreboard_task = asyncio.create_task(fetch_scoreboard_updates())
+    scoreboard_task = None
+    try:
+        scoreboard_task = asyncio.create_task(fetch_scoreboard_updates())
+    except Exception as e:
+        logger.error(f"Failed to start scoreboard task, continuing anyway: {e}")
 
     yield  # Application is running
 
     # 4) Cleanup
-    scoreboard_task.cancel()
-    try:
-        await scoreboard_task
-    except asyncio.CancelledError:
-        pass
+    if scoreboard_task:
+        scoreboard_task.cancel()
+        try:
+            await scoreboard_task
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error canceling scoreboard task: {e}")
 
 
 def create_app() -> FastAPI:
@@ -294,6 +312,16 @@ def are_responses_equal(resp1, resp2):
 
 
 app = create_app()
+
+# Add a simple root endpoint
+@app.get("/")
+async def root():
+    return {"message": "Welcome to the NBA Scoreboard API", "version": "1.0.0"}
+    
+# Add a health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
 if __name__ == "__main__":
     import uvicorn
