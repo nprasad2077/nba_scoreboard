@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.core.database import get_db
+from app.core.database import SessionLocal, get_db
 from app.services.players import (
     get_player_recent_games,
     search_players,
@@ -68,3 +68,26 @@ async def update_players(db: Session = Depends(get_db)):
     """
     await update_player_database(db)
     return {"message": "Players database updated successfully"}
+
+
+@router.post("/init-db", status_code=200)
+async def initialize_database():
+    """
+    Manually initialize the database tables.
+    Use this endpoint if tables weren't properly created at startup.
+    """
+    from app.core.database import engine
+    from app.models.players import Base
+    
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
+    
+    # Also update player data
+    db = SessionLocal()
+    try:
+        await update_player_database(db)
+        return {"message": "Database initialized and player data updated successfully"}
+    except Exception as e:
+        return {"message": f"Database initialized but error updating data: {str(e)}"}
+    finally:
+        db.close()

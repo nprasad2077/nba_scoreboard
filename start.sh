@@ -1,14 +1,16 @@
 #!/bin/sh
 set -e
 
-# First make sure alembic is properly installed
-pip install --force-reinstall alembic>=1.12.0
+# Make sure alembic is properly installed
+pip install --force-reinstall alembic
 
-# Set environment variables for more resilient startup
-export NBA_API_TIMEOUT=60
-export TESTING=true  # Skip initial NBA API calls for startup
+# Set the correct Python path
+export PYTHONPATH=/app/nba_scoreboard_api/api
 
-# Start the FastAPI backend using uvicorn
+# Create the data directory if it doesn't exist
+mkdir -p /app/nba_scoreboard_api/api/data
+
+# Start the FastAPI backend
 cd /app/nba_scoreboard_api/api
 python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 &
 

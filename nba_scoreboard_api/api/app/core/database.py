@@ -38,18 +38,16 @@ def get_db() -> Session:
 def init_db() -> None:
     """Initialize the database by creating all tables."""
     try:
-        # Create tables using SQLAlchemy
-        # Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully")
-        
-        # Run migrations using alembic CLI
+        # First try to run migrations using alembic CLI
         try:
             subprocess.run(["alembic", "upgrade", "head"], check=True)
             logger.info("Database migrations completed successfully")
         except subprocess.CalledProcessError as e:
             logger.error(f"Error running migrations: {e}")
-            # Continue even if migrations fail, as tables are created
-            
+            # Fallback: Create tables directly using SQLAlchemy
+            logger.info("Falling back to SQLAlchemy table creation")
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables created successfully using SQLAlchemy")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         raise
