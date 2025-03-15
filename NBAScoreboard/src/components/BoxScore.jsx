@@ -503,7 +503,7 @@ const BoxScore = ({ game, open }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const api_url = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000/api/v1";
+  const api_url = "http://h840kckc8c8swg0cos4cs4g0.143.198.70.30.sslip.io";
   const gameId = game.gameId;
   const [awayScore, homeScore] = game.score
     .split(" - ")
