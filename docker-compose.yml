@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   nba_scoreboard:
     build:
@@ -8,3 +6,6 @@ services:
     ports:
       - "8001:8000"
       - "3001:3000"
+    environment:
+      - API_URL=https://api.server.nbaapi.com
+      - FRONTEND_URL=https://scoreboard.server.nbaapi.com
