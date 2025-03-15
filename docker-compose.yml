@@ -1,11 +1,58 @@
+version: "3.8"
+
 services:
   nba_scoreboard:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8001:8000"
-      - "3001:3000"
+      - "8001:8000"      # For direct access to FastAPI (optional)
+      - "3001:3000"      # For direct access to React (optional)
     environment:
       - API_URL=https://api.server.nbaapi.com
       - FRONTEND_URL=https://scoreboard.server.nbaapi.com
+    labels:
+      # Enable Traefik
+      - "traefik.enable=true"
+      
+      ########################################
+      # HTTP ROUTER for FastAPI (port 8000)
+      ########################################
+      - "traefik.http.routers.api-http.rule=Host(`api.server.nbaapi.com`)"
+      - "traefik.http.routers.api-http.entrypoints=http"
+      - "traefik.http.routers.api-http.middlewares=redirect-to-https@file"     # optional if you want http→https
+      - "traefik.http.routers.api-http.service=api-service"
+
+      ########################################
+      # HTTPS ROUTER for FastAPI (port 8000)
+      ########################################
+      - "traefik.http.routers.api-https.rule=Host(`api.server.nbaapi.com`)"
+      - "traefik.http.routers.api-https.entrypoints=https"
+      - "traefik.http.routers.api-https.service=api-service"
+      - "traefik.http.routers.api-https.tls=true"
+      - "traefik.http.routers.api-https.tls.certresolver=letsencrypt"          # adjust to your cert resolver name
+
+      # The loadbalancer for the API
+      - "traefik.http.services.api-service.loadbalancer.server.port=8000"
+
+      ########################################
+      # HTTP ROUTER for React (port 3000)
+      ########################################
+      - "traefik.http.routers.frontend-http.rule=Host(`scoreboard.server.nbaapi.com`)"
+      - "traefik.http.routers.frontend-http.entrypoints=http"
+      - "traefik.http.routers.frontend-http.middlewares=redirect-to-https@file" # optional if you want http→https
+      - "traefik.http.routers.frontend-http.service=frontend-service"
+
+      ########################################
+      # HTTPS ROUTER for React (port 3000)
+      ########################################
+      - "traefik.http.routers.frontend-https.rule=Host(`scoreboard.server.nbaapi.com`)"
+      - "traefik.http.routers.frontend-https.entrypoints=https"
+      - "traefik.http.routers.frontend-https.service=frontend-service"
+      - "traefik.http.routers.frontend-https.tls=true"
+      - "traefik.http.routers.frontend-https.tls.certresolver=letsencrypt"      # adjust to your cert resolver name
+
+      # The loadbalancer for the frontend
+      - "traefik.http.services.frontend-service.loadbalancer.server.port=3000"
+
+    restart: unless-stopped
