@@ -1,8 +1,8 @@
-# app/core/config.py
 from functools import lru_cache
 from typing import List, Union
 from pydantic_settings import BaseSettings
 from pathlib import Path
+import os
 
 # Get project root directory and env file path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -43,15 +43,15 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS_STR.split(",")]
     
     class Config:
-        env_file = str(ENV_FILE)
+        # This tells pydantic to try reading from .env file but doesn't fail if missing
+        env_file = str(ENV_FILE) if ENV_FILE.exists() else None
         case_sensitive = True
+        # This ensures environment variables take precedence over .env file values
+        env_file_encoding = 'utf-8'
+        extra = 'ignore'  # Ignore extra fields
 
 @lru_cache()
 def get_settings() -> Settings:
     """Return cached settings instance."""
-    if not ENV_FILE.exists():
-        raise FileNotFoundError(
-            f"Environment file not found at {ENV_FILE}. "
-            f"Please create one from .env.example"
-        )
+    # Simply return settings without checking for .env file
     return Settings()
