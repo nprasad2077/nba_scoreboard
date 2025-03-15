@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
 
 # Copy only requirements.txt first for better caching
 COPY nba_scoreboard_api/requirements.txt ./nba_scoreboard_api/
+RUN pip install alembic
 RUN pip install --upgrade pip && \
     pip install -r nba_scoreboard_api/requirements.txt
 
