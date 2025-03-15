@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any, Set
 from fastapi import WebSocket
 from nba_api.live.nba.endpoints import scoreboard, boxscore, playbyplay
+from nba_api.stats.endpoints import leaguegamefinder
 import pytz
 from dateutil import parser
 import json
@@ -864,26 +865,42 @@ async def get_live_scoreboard() -> ScoreboardResponse:
 
 async def get_past_scoreboard(date_str: str) -> List[GameBrief]:
     """
-    Get scoreboard data for a past date.
+    Get scoreboard data for a past date with improved headers and timeout.
+    
     Args:
         date_str: Date in YYYY-MM-DD format
+    
     Returns:
         List of games for the specified date
     """
     try:
-        from nba_api.stats.endpoints import leaguegamefinder
-
+        # Use the custom headers from your working solution
+        custom_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': 'https://stats.nba.com',
+            'Referer': 'https://stats.nba.com'
+        }
+        
+        # Parse the date format
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         date_formatted = date_obj.strftime("%m/%d/%Y")
+        
+        # Make the API call with custom headers and a longer timeout
         games_df = leaguegamefinder.LeagueGameFinder(
             date_from_nullable=date_formatted,
             date_to_nullable=date_formatted,
             league_id_nullable="00",
+            headers=custom_headers,  # Add custom headers
+            timeout=120  # Increase timeout to 120 seconds
         ).get_data_frames()[0]
+        
         return process_past_games(games_df)
     except Exception as e:
         logger.error(f"Error fetching past scoreboard: {e}")
-        raise
+        # Return an empty list instead of raising an exception for now
+        return []
 
 
 # Updated get_box_score function in app/services/scoreboard.py
