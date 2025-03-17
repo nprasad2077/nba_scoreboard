@@ -25,19 +25,22 @@ from app.schemas.scoreboard import (
     TeamBoxScore,
     PlayerBoxScore,
     PlayerStatistics,
+    PlayerData,
 )
 
 logger = logging.getLogger(__name__)
 
 
-async def get_box_score_fixed(game_id: str):
+async def get_box_score_fixed(game_id: str) -> GameBoxScore:
     """
-    Fixed implementation that matches the schema fields correctly.
+    Fetch and format box score data for a specific game,
+    ensuring compatibility with the old API response format.
 
-    This implementation follows the corrected field names in our schema:
-    - game_id instead of gameId
-    - team_id instead of teamId
-    - etc.
+    Args:
+        game_id: NBA game ID
+
+    Returns:
+        GameBoxScore object with the same field names as the old API
     """
     try:
         logger.info(f"Fetching box score for game ID: {game_id}")
@@ -49,16 +52,17 @@ async def get_box_score_fixed(game_id: str):
         home_players = []
         for player in b.home_team_player_stats.get_dict() or []:
             if isinstance(player, dict):
-                # Extract statistics safely
-                stats_dict = player.get("statistics", {}) or {}
-
                 home_players.append(
-                    PlayerBoxScore(
-                        player_id=str(player.get("personId", "")),
+                    PlayerData(
                         name=player.get("name", ""),
                         position=player.get("position", ""),
                         starter=player.get("starter", False),
-                        statistics=PlayerStatistics(**stats_dict),
+                        oncourt=player.get("oncourt", False),
+                        jerseyNum=player.get("jerseyNum", ""),
+                        status=player.get("status", "ACTIVE"),
+                        statistics=PlayerStatistics(
+                            **(player.get("statistics", {}) or {})
+                        ),
                     )
                 )
 
@@ -66,74 +70,44 @@ async def get_box_score_fixed(game_id: str):
         away_players = []
         for player in b.away_team_player_stats.get_dict() or []:
             if isinstance(player, dict):
-                # Extract statistics safely
-                stats_dict = player.get("statistics", {}) or {}
-
                 away_players.append(
-                    PlayerBoxScore(
-                        player_id=str(player.get("personId", "")),
+                    PlayerData(
                         name=player.get("name", ""),
                         position=player.get("position", ""),
                         starter=player.get("starter", False),
-                        statistics=PlayerStatistics(**stats_dict),
+                        oncourt=player.get("oncourt", False),
+                        jerseyNum=player.get("jerseyNum", ""),
+                        status=player.get("status", "ACTIVE"),
+                        statistics=PlayerStatistics(
+                            **(player.get("statistics", {}) or {})
+                        ),
                     )
                 )
 
         # Get team stats
-        home_team_stats = b.home_team_stats.get_dict() or {}
-        away_team_stats = b.away_team_stats.get_dict() or {}
+        home_team = b.home_team_stats.get_dict() or {}
+        away_team = b.away_team_stats.get_dict() or {}
 
-        # Get game metadata
-        game_data = b.get_dict() or {}
-        game_status = game_data.get("gameStatus", 1)
-        game_period = game_data.get("period", 0)
-        game_clock = game_data.get("gameClock")
-
-        # Construct the final response using field names matching the schema
+        # Construct the response using the original field names
         return GameBoxScore(
-            game_id=game_id,
-            status=game_status,
-            period=game_period,
-            clock=game_clock,
+            gameId=game_id,
             home_team=TeamBoxScore(
-                team_id=str(home_team_stats.get("teamId", "")),
-                team_name=home_team_stats.get("teamName", ""),
-                team_city=home_team_stats.get("teamCity", ""),
-                team_tricode=home_team_stats.get("teamTricode", ""),
+                teamName=home_team.get("teamName", ""),
+                teamCity=home_team.get("teamCity", ""),
+                teamTricode=home_team.get("teamTricode", ""),
                 players=home_players,
             ),
             away_team=TeamBoxScore(
-                team_id=str(away_team_stats.get("teamId", "")),
-                team_name=away_team_stats.get("teamName", ""),
-                team_city=away_team_stats.get("teamCity", ""),
-                team_tricode=away_team_stats.get("teamTricode", ""),
+                teamName=away_team.get("teamName", ""),
+                teamCity=away_team.get("teamCity", ""),
+                teamTricode=away_team.get("teamTricode", ""),
                 players=away_players,
             ),
         )
 
     except Exception as e:
-        logger.error(f"Error in get_box_score_fixed for game {game_id}: {e}")
-        # Return empty response with correct field names
-        return GameBoxScore(
-            game_id=game_id,
-            status=1,
-            period=0,
-            clock=None,
-            home_team=TeamBoxScore(
-                team_id="",
-                team_name="",
-                team_city="",
-                team_tricode="",
-                players=[],
-            ),
-            away_team=TeamBoxScore(
-                team_id="",
-                team_name="",
-                team_city="",
-                team_tricode="",
-                players=[],
-            ),
-        )
+        logger.error(f"Error fetching box score: {e}")
+        raise
 
 
 def standardize_game_clocks(games_data: List[Dict]) -> List[Dict]:
@@ -404,7 +378,13 @@ class ScoreboardManager:
         logger.warning(f"Unable to standardize clock format: {clock_str}")
         return None
 
-    def _is_clock_regression(self, old_clock: Optional[str], new_clock: Optional[str], game_status: int, period: int) -> bool:
+    def _is_clock_regression(
+        self,
+        old_clock: Optional[str],
+        new_clock: Optional[str],
+        game_status: int,
+        period: int,
+    ) -> bool:
         """
         Check if the new clock represents an invalid regression (time going up).
         Improved version that handles period changes and is more tolerant of small variations.
@@ -432,7 +412,7 @@ class ScoreboardManager:
             return False
 
         # Regression logic:
-        # 1. Allow clock to increase by any amount when moving to a new period 
+        # 1. Allow clock to increase by any amount when moving to a new period
         #    (it goes from 0:00 in one period to 12:00 in the next)
         # 2. Allow minor clock adjustments (up to 5 seconds) during the same period
         #    (this accommodates small corrections by officials)
@@ -440,17 +420,17 @@ class ScoreboardManager:
 
         # Check if both clocks are typical end-of-period times
         is_period_end = old_seconds < 1.0  # Old clock is at or near 0:00
-        
+
         # If we're at the end of a period, always accept the new clock
         # as it's likely the start of a new period
         if is_period_end:
             return False
-            
+
         # Clock should generally decrease (or stay same) during gameplay
         # Allow up to 5 second regression for clock corrections (after timeouts, fouls, etc.)
         time_regression = new_seconds > old_seconds
         regression_amount = new_seconds - old_seconds if time_regression else 0
-        
+
         # Reject only significant unexplained regressions (> 5 seconds)
         return time_regression and regression_amount > 5.0
 
@@ -582,10 +562,10 @@ class ScoreboardManager:
                     # If we had no clock before, accept the new one
                     result["clock"] = new_game["clock"]
                 elif not self._is_clock_regression(
-                    current_game["clock"], 
-                    new_game["clock"], 
+                    current_game["clock"],
+                    new_game["clock"],
                     current_game["game_status"],
-                    current_game["period"]  # Pass period to improved function
+                    current_game["period"],  # Pass period to improved function
                 ):
                     # Accept clock if it doesn't show an invalid regression
                     result["clock"] = new_game["clock"]
@@ -599,7 +579,10 @@ class ScoreboardManager:
             if current_score == 0 or early_phase:
                 result[team_key]["score"] = new_score
             # Normal case: Game in progress, validate score changes
-            elif self._is_reasonable_score_change(current_score, new_score) or not early_phase:
+            elif (
+                self._is_reasonable_score_change(current_score, new_score)
+                or not early_phase
+            ):
                 result[team_key]["score"] = new_score
 
         # Always update non-critical fields
@@ -866,36 +849,36 @@ async def get_live_scoreboard() -> ScoreboardResponse:
 async def get_past_scoreboard(date_str: str) -> List[GameBrief]:
     """
     Get scoreboard data for a past date with improved headers and timeout.
-    
+
     Args:
         date_str: Date in YYYY-MM-DD format
-    
+
     Returns:
         List of games for the specified date
     """
     try:
         # Use the custom headers from your working solution
         custom_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'application/json',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Origin': 'https://stats.nba.com',
-            'Referer': 'https://stats.nba.com'
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Origin": "https://stats.nba.com",
+            "Referer": "https://stats.nba.com",
         }
-        
+
         # Parse the date format
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         date_formatted = date_obj.strftime("%m/%d/%Y")
-        
+
         # Make the API call with custom headers and a longer timeout
         games_df = leaguegamefinder.LeagueGameFinder(
             date_from_nullable=date_formatted,
             date_to_nullable=date_formatted,
             league_id_nullable="00",
             headers=custom_headers,  # Add custom headers
-            timeout=120  # Increase timeout to 120 seconds
+            timeout=120,  # Increase timeout to 120 seconds
         ).get_data_frames()[0]
-        
+
         return process_past_games(games_df)
     except Exception as e:
         logger.error(f"Error fetching past scoreboard: {e}")
