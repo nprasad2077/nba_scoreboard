@@ -503,7 +503,7 @@ const BoxScore = ({ game, open }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const api_url = "http://h840kckc8c8swg0cos4cs4g0.143.198.70.30.sslip.io";
+  const api_url = "https://api.server.nbaapi.com/api/v1/scoreboard";
   const gameId = game.gameId;
   const [awayScore, homeScore] = game.score
     .split(" - ")
